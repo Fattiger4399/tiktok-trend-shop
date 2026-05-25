@@ -47,6 +47,34 @@ class AssetRecord:
 
 
 @dataclass(frozen=True)
+class ProductDetailSnapshot:
+    id: str
+    product_id: str
+    provider: str
+    platform: str | None
+    source_id: str | None
+    source_url: str | None
+    product_url: str | None
+    title: str | None
+    shop_name: str | None
+    brand: str | None
+    price: float | None
+    currency: str | None
+    image_url: str | None
+    specs: dict[str, object]
+    selling_points: tuple[str, ...]
+    review_summary: str | None
+    review_highlights: tuple[str, ...]
+    warnings: tuple[str, ...]
+    missing_fields: tuple[str, ...]
+    completeness_status: str
+    raw: dict[str, object]
+    metadata: dict[str, object]
+    captured_at: str
+    created_at: str
+
+
+@dataclass(frozen=True)
 class AuditEvent:
     id: str
     subject_type: str
