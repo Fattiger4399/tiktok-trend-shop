@@ -94,3 +94,26 @@ Desk Lamp,CN,home,https://item.example/lamp,taobao,Demo Shop,Demo Brand,29.9,htt
 ```
 
 `show-results` prints the latest local state for each product, including detail completeness, product URL, score, caption, hashtags, render URI, and export package ID.
+
+## Go Backend Migration
+
+The Go backend is being introduced in stages. The Python workflow remains available as the reference implementation while Go takes over production API and worker responsibilities.
+
+Current Go commands:
+
+```powershell
+$env:TTS_DATABASE_URL = "sqlite:///./data/go-demo.sqlite3"
+go run ./cmd/tkshop migrate
+go run ./cmd/tkshop import-csv --file data/products_cn.csv --region CN
+go run ./cmd/tkshop show-products --limit 10
+go run ./cmd/tkshop serve --addr :8080
+```
+
+The first Go slice supports local SQLite migration, CSV product import, detail-column parsing, product listing, and HTTP endpoints:
+
+```text
+GET /healthz
+GET /products?limit=20
+```
+
+Go is intended to become the customer-facing API and worker runtime. Python should remain useful for prompt experiments, data exploration, and reference behavior until each module is migrated.

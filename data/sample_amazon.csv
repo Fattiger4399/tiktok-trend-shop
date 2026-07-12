@@ -1,0 +1,6 @@
+title,region,marketplace,asin,category,product_url,shop_name,brand,price,image_url,selling_points,specs,review_summary,views,sales
+LED Desk Lamp,US,US,B0SAMPLE01,Home & Kitchen,https://amazon.com/dp/B0SAMPLE01,Lumi Home,Lumi,29.99,https://img.example/lamp.jpg,"Adjustable color|USB powered",color:warm|height:38cm,Looks good on desks,12000,210
+Wireless Earbuds,US,US,B0SAMPLE02,Electronics,https://amazon.com/dp/B0SAMPLE02,Sound Lab,SoundLab,49.99,https://img.example/earbuds.jpg,"Noise cancelling|Bluetooth 5.3",color:black|case:yes,Battery is excellent,8500,95
+Pet Toy Bundle,US,US,B0SAMPLE03,Pet Supplies,https://amazon.com/dp/B0SAMPLE03,Happy Pets,HappyPets,18.50,https://img.example/pet.jpg,"Durable rubber|Squeaky",material:rubber,Dogs love it,4200,160
+Laptop Stand,US,US,B0SAMPLE04,Office Products,https://amazon.com/dp/B0SAMPLE04,Ergo Office,Ergo,24.99,https://img.example/stand.jpg,"Aluminum|Foldable",material:aluminum|height:adjustable,Sturdy and light,3000,72
+Yoga Mat,US,US,B0SAMPLE05,Sports & Outdoors,https://amazon.com/dp/B0SAMPLE05,Calm Studio,Calm,32.00,https://img.example/yoga.jpg,"Non-slip|6mm thick",thickness:6mm|color:purple,Great grip,1500,40
