@@ -1,0 +1,208 @@
+{
+  "app": {
+    "brand": "趋势工作台",
+    "environment": "本地工作台",
+    "language": "语言"
+  },
+  "nav": {
+    "trending": "热门商品",
+    "categories": "分类管理",
+    "imports": "导入",
+    "back": "返回"
+  },
+  "route": {
+    "trending": "热门商品",
+    "productDetail": "商品详情",
+    "categories": "目录与分类",
+    "imports": "CSV 导入",
+    "importDetail": "导入详情"
+  },
+  "common": {
+    "loading": "加载中…",
+    "retry": "重试",
+    "cancel": "取消",
+    "clear": "清除筛选",
+    "search": "搜索",
+    "actions": "操作",
+    "previous": "上一页",
+    "next": "下一页",
+    "of": "共",
+    "page": "第",
+    "total": "条",
+    "view": "查看",
+    "back": "返回",
+    "refresh": "刷新",
+    "viewDetails": "查看详情",
+    "empty": "暂无数据",
+    "unavailable": "暂无",
+    "yes": "是",
+    "no": "否"
+  },
+  "trends": {
+    "title": "热门商品",
+    "subtitle": "基于类目相对分数的亚马逊趋势商品工作台。",
+    "filters": {
+      "marketplace": "市场",
+      "category": "标准类目",
+      "window": "时间窗口",
+      "sort": "排序",
+      "direction": "方向",
+      "search": "搜索标题或 ASIN"
+    },
+    "marketplaces": {
+      "all": "全部市场"
+    },
+    "categories": {
+      "all": "全部类目"
+    },
+    "windows": {
+      "24h": "近 24 小时",
+      "7d": "近 7 天",
+      "30d": "近 30 天",
+      "90d": "近 90 天",
+      "all": "全部时间"
+    },
+    "sorts": {
+      "score": "热点分数",
+      "updated": "最近更新",
+      "price": "价格",
+      "created": "发现时间",
+      "asin": "ASIN"
+    },
+    "directions": {
+      "desc": "降序",
+      "asc": "升序"
+    },
+    "table": {
+      "product": "商品",
+      "price": "价格",
+      "score": "分数",
+      "source": "数据源",
+      "updated": "最近更新",
+      "rank": "排名"
+    },
+    "summary": "共 {{count}} 件商品，按 {{sort}} 排序",
+    "refreshing": "刷新中…",
+    "empty": {
+      "title": "没有符合条件的商品",
+      "description": "尝试放宽时间窗口或清除筛选条件。"
+    }
+  },
+  "product": {
+    "title": "商品",
+    "price": "价格",
+    "sellingPoints": "卖点",
+    "reviewSummary": "评价摘要",
+    "shop": "店铺",
+    "missing": "缺失字段",
+    "asin": "ASIN",
+    "marketplace": "市场",
+    "noAsin": "无 ASIN",
+    "backToTrending": "返回热门",
+    "noDetail": "尚未记录商品详情",
+    "completeTag": "完整",
+    "incompleteTag": "不完整",
+    "estimatedTag": "预估指标",
+    "staleTag": "数据陈旧",
+    "score": {
+      "title": "热点分数说明",
+      "noScore": "暂无分数快照",
+      "noScoreDescription": "请运行评分计算。",
+      "total": "总分",
+      "model": "模型",
+      "window": "窗口",
+      "missing": "缺失组件"
+    },
+    "classification": {
+      "title": "分类",
+      "none": "暂无分类记录。",
+      "via": "方式",
+      "choose": "请选择标准类目…",
+      "assign": "手动分配"
+    },
+    "history": {
+      "title": "指标历史",
+      "empty": "暂无观测记录",
+      "insufficient": "至少需要两个观测点才能绘制趋势，下方显示最新已知值。",
+      "insufficientTag": "历史不足"
+    }
+  },
+  "categories": {
+    "title": "目录与分类",
+    "canonicalTitle": "标准类目",
+    "mappingsTitle": "来源映射",
+    "reviewTitle": "待复核",
+    "empty": {
+      "noCategories": "尚未播种标准类目",
+      "noUnresolved": "没有待复核商品",
+      "noUnresolvedDescription": "所有导入商品都已分配到可信的标准类目。"
+    },
+    "table": {
+      "product": "商品",
+      "region": "区域",
+      "sourceCategory": "来源类目",
+      "provider": "数据源",
+      "source": "来源",
+      "canonical": "标准类目",
+      "confidence": "置信度"
+    },
+    "loading": "正在加载类目",
+    "mappingsLoading": "正在加载映射",
+    "unresolvedLoading": "正在查询待复核商品"
+  },
+  "imports": {
+    "title": "CSV 导入",
+    "uploadTitle": "上传新文件",
+    "historyTitle": "最近导入",
+    "file": "CSV 文件",
+    "region": "默认区域",
+    "submit": "上传",
+    "submitting": "上传中…",
+    "error": "请先选择 CSV 文件再提交。",
+    "tooLarge": "文件超过 {{size}} MB 限制。",
+    "success": "导入任务 {{id}} 已接收（导入 {{count}} 条）。",
+    "help": "文件必须包含 title 列。可选列：marketplace、asin、category、price、selling_points、specs、review_summary、views、sales 等。",
+    "empty": "暂无导入记录",
+    "emptyDescription": "上传一个 CSV 文件来创建第一个导入任务。",
+    "loading": "正在加载导入历史",
+    "table": {
+      "file": "文件",
+      "status": "状态",
+      "imported": "导入",
+      "updated": "更新",
+      "rejected": "拒绝",
+      "started": "开始时间"
+    },
+    "detail": {
+      "imported": "导入行数",
+      "updated": "更新行数",
+      "duplicates": "重复行数",
+      "rejected": "拒绝行数",
+      "startedAt": "开始时间",
+      "completedAt": "完成时间",
+      "summary": "汇总",
+      "outcomes": "行结果",
+      "noOutcomes": "未记录任何行结果。",
+      "row": "行号",
+      "reason": "原因"
+    },
+    "status": {
+      "completed": "已完成",
+      "failed": "失败",
+      "partially_completed": "部分完成",
+      "running": "进行中",
+      "pending": "等待中"
+    }
+  },
+  "confidence": {
+    "high": "高置信度",
+    "medium": "中等置信度",
+    "low": "低置信度"
+  },
+  "common_columns": {
+    "noImage": "无图片",
+    "noSource": "未知来源",
+    "captured": "最近采集",
+    "noObservation": "无观测"
+  }
+}

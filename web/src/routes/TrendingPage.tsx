@@ -1,182 +1,214 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Button, Card, Form, Input, Pagination, Select, Space, Table, Tag, Typography } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import { useTrends } from '../hooks/queries'
 import { useTrendsURL } from '../hooks/useTrendsURL'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { ProductRow } from '../components/ProductRow'
+import { useI18n } from '../i18n/I18nProvider'
+import type { ProductResult } from '../api/types'
 
-const SORT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'score', label: 'Hotspot score' },
-  { value: 'updated', label: 'Last update' },
-  { value: 'price', label: 'Price' },
-  { value: 'created', label: 'Discovered' },
-  { value: 'asin', label: 'ASIN' },
-]
-
-const WINDOWS: Array<{ value: string; label: string }> = [
-  { value: '24h', label: 'Last 24h' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: '90d', label: 'Last 90 days' },
-  { value: 'all', label: 'All time' },
+const MARKETPLACES = ['US', 'UK', 'DE', 'JP'] as const
+const CATEGORIES: Array<{ id: string; label: string }> = [
+  { id: 'cat-beauty', label: 'beauty' },
+  { id: 'cat-home', label: 'home' },
+  { id: 'cat-electronics', label: 'electronics' },
+  { id: 'cat-fashion', label: 'fashion' },
+  { id: 'cat-toys', label: 'toys' },
+  { id: 'cat-sports', label: 'sports' },
 ]
 
 export default function TrendingPage() {
+  const { t, locale } = useI18n()
   const { params, setParam, clear } = useTrendsURL()
   const { data, error, isLoading, isFetching, refetch } = useTrends(params)
   const [searchInput, setSearchInput] = useState(params.q ?? '')
 
   const products = data?.items ?? []
   const effective = (data?.effective ?? {}) as Record<string, unknown>
-
   const sortLabel = useMemo(() => {
     const value = (effective.sort as string) ?? params.sort ?? 'score'
-    return SORT_OPTIONS.find((opt) => opt.value === value)?.label ?? value
-  }, [effective.sort, params.sort])
+    return t(`trends.sorts.${value}` as 'trends.sorts.score')
+  }, [effective.sort, params.sort, t])
+
+  const dateLocale = locale === 'zh' ? 'zh-CN' : 'en-US'
+
+  const columns: ColumnsType<ProductResult> = useMemo(
+    () => [
+      {
+        title: t('trends.table.product'),
+        dataIndex: 'title',
+        key: 'title',
+        render: (_value, record) => (
+          <div>
+            <Link to={`/products/${record.id}`}>{record.title}</Link>
+            <div style={{ color: '#6b7280', fontSize: 12 }}>
+              {record.asin ?? t('product.noAsin')}
+              {record.marketplace ? ` · ${record.marketplace}` : ''}
+            </div>
+          </div>
+        ),
+      },
+      {
+        title: t('trends.table.price'),
+        key: 'price',
+        width: 120,
+        render: (_value, record) =>
+          record.price !== undefined && record.price !== null ? (
+            `${record.currency ?? ''} ${record.price.toFixed(2)}`.trim()
+          ) : (
+            <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+          ),
+      },
+      {
+        title: t('trends.table.score'),
+        key: 'score',
+        width: 160,
+        render: (_value, record) =>
+          record.score ? (
+            <Space size={4}>
+              <span>{record.score.total_score.toFixed(2)}</span>
+              <Tag color={confidenceColor(record.score.confidence)}>
+                {t(`confidence.${record.score.confidence}` as 'confidence.high')}
+              </Tag>
+            </Space>
+          ) : (
+            <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+          ),
+      },
+      {
+        title: t('trends.table.source'),
+        key: 'source',
+        width: 120,
+        render: (_value, record) =>
+          record.provenance?.provider ?? (
+            <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+          ),
+      },
+      {
+        title: t('trends.table.updated'),
+        key: 'updated',
+        width: 200,
+        render: (_value, record) => {
+          if (!record.freshness?.last_captured_at) {
+            return <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+          }
+          return (
+            <Space direction="vertical" size={2}>
+              <span>{new Date(record.freshness.last_captured_at).toLocaleString(dateLocale)}</span>
+              {record.freshness.stale ? <Tag color="orange">{t('product.staleTag')}</Tag> : null}
+            </Space>
+          )
+        },
+      },
+    ],
+    [dateLocale, t],
+  )
 
   return (
     <section aria-labelledby="trends-title">
-      <h2 id="trends-title" className="card-title" style={{ marginBottom: 16 }}>
-        Trending Products
-      </h2>
-      <div className="toolbar" role="toolbar" aria-label="Filters">
-        <select
-          className="select"
-          value={params.marketplace ?? ''}
-          onChange={(e) => setParam('marketplace', e.target.value)}
-          aria-label="Marketplace"
-        >
-          <option value="">All marketplaces</option>
-          <option value="US">US</option>
-          <option value="UK">UK</option>
-          <option value="DE">DE</option>
-          <option value="JP">JP</option>
-        </select>
-        <select
-          className="select"
-          value={params.category ?? ''}
-          onChange={(e) => setParam('category', e.target.value)}
-          aria-label="Canonical category"
-        >
-          <option value="">All categories</option>
-          <option value="cat-beauty">Beauty</option>
-          <option value="cat-home">Home & Kitchen</option>
-          <option value="cat-electronics">Electronics</option>
-          <option value="cat-fashion">Fashion</option>
-          <option value="cat-toys">Toys & Games</option>
-          <option value="cat-sports">Sports</option>
-        </select>
-        <select
-          className="select"
-          value={params.window ?? '30d'}
-          onChange={(e) => setParam('window', e.target.value as typeof params.window)}
-          aria-label="Time window"
-        >
-          {WINDOWS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <select
-          className="select"
-          value={params.sort ?? 'score'}
-          onChange={(e) => setParam('sort', e.target.value as typeof params.sort)}
-          aria-label="Sort field"
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <select
-          className="select"
-          value={params.direction ?? 'desc'}
-          onChange={(e) => setParam('direction', e.target.value as 'asc' | 'desc')}
-          aria-label="Sort direction"
-        >
-          <option value="desc">Descending</option>
-          <option value="asc">Ascending</option>
-        </select>
-        <form
-          className="toolbar-grow"
-          onSubmit={(e) => {
-            e.preventDefault()
-            setParam('q', searchInput)
-          }}
-          role="search"
-        >
-          <input
-            className="input"
-            type="search"
-            placeholder="Search title or ASIN"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            aria-label="Search products"
-          />
-        </form>
-        <button type="button" className="button is-secondary" onClick={clear}>
-          Clear filters
-        </button>
-      </div>
+      <Typography.Title id="trends-title" level={3} style={{ marginBottom: 16 }}>
+        {t('trends.title')}
+      </Typography.Title>
+      <Card style={{ marginBottom: 16 }}>
+        <Form layout="inline" style={{ rowGap: 8, columnGap: 8 }}>
+          <Form.Item label={t('trends.filters.marketplace')}>
+            <Select
+              style={{ width: 160 }}
+              value={params.marketplace ?? ''}
+              onChange={(value) => setParam('marketplace', value)}
+              options={[
+                { value: '', label: t('trends.marketplaces.all') },
+                ...MARKETPLACES.map((m) => ({ value: m, label: m })),
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label={t('trends.filters.category')}>
+            <Select
+              style={{ width: 200 }}
+              value={params.category ?? ''}
+              onChange={(value) => setParam('category', value)}
+              options={[
+                { value: '', label: t('trends.categories.all') },
+                ...CATEGORIES.map((c) => ({ value: c.id, label: c.label })),
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label={t('trends.filters.window')}>
+            <Select
+              style={{ width: 140 }}
+              value={params.window ?? '30d'}
+              onChange={(value) => setParam('window', value as typeof params.window)}
+              options={[
+                { value: '24h', label: t('trends.windows.24h') },
+                { value: '7d', label: t('trends.windows.7d') },
+                { value: '30d', label: t('trends.windows.30d') },
+                { value: '90d', label: t('trends.windows.90d') },
+                { value: 'all', label: t('trends.windows.all') },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label={t('trends.filters.sort')}>
+            <Select
+              style={{ width: 160 }}
+              value={params.sort ?? 'score'}
+              onChange={(value) => setParam('sort', value as typeof params.sort)}
+              options={[
+                { value: 'score', label: t('trends.sorts.score') },
+                { value: 'updated', label: t('trends.sorts.updated') },
+                { value: 'price', label: t('trends.sorts.price') },
+                { value: 'created', label: t('trends.sorts.created') },
+                { value: 'asin', label: t('trends.sorts.asin') },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label={t('trends.filters.direction')}>
+            <Select
+              style={{ width: 120 }}
+              value={params.direction ?? 'desc'}
+              onChange={(value) => setParam('direction', value as 'asc' | 'desc')}
+              options={[
+                { value: 'desc', label: t('trends.directions.desc') },
+                { value: 'asc', label: t('trends.directions.asc') },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label={t('trends.filters.search')} style={{ flex: 1, minWidth: 200 }}>
+            <Input.Search
+              allowClear
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onSearch={(value) => setParam('q', value)}
+              placeholder={t('trends.filters.search')}
+            />
+          </Form.Item>
+          <Form.Item>
+            <Button onClick={clear}>{t('common.clear')}</Button>
+          </Form.Item>
+        </Form>
+      </Card>
 
       {isLoading ? (
-        <LoadingState label="Loading trending products" rows={6} />
+        <LoadingState label={t('common.loading')} rows={6} />
       ) : error ? (
         <ErrorState error={error as Error} onRetry={() => refetch()} />
       ) : products.length === 0 ? (
-        <EmptyState
-          title="No products match these filters"
-          description="Try widening the time window or clearing filters."
-        />
+        <EmptyState title={t('trends.empty.title')} description={t('trends.empty.description')} />
       ) : (
         <>
-          <p className="muted" style={{ marginBottom: 8 }} aria-live="polite">
-            Showing {products.length} products sorted by {sortLabel.toLowerCase()}
-            {isFetching ? ' · refreshing…' : ''}
-          </p>
-          <table className="table" role="table" aria-label="Trending products">
-            <thead>
-              <tr>
-                <th scope="col">Product</th>
-                <th scope="col">Price</th>
-                <th scope="col">Score</th>
-                <th scope="col">Source</th>
-                <th scope="col">Last update</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td>
-                    <Link to={`/products/${product.id}`}>{product.title}</Link>
-                    <div className="muted">
-                      {product.asin ?? 'no ASIN'}
-                      {product.marketplace ? ` · ${product.marketplace}` : ''}
-                    </div>
-                  </td>
-                  <td>
-                    {product.price !== undefined && product.price !== null
-                      ? `${product.currency ?? ''} ${product.price.toFixed(2)}`.trim()
-                      : <span className="unavailable">unavailable</span>}
-                  </td>
-                  <td>
-                    {product.score
-                      ? `${product.score.total_score.toFixed(2)} (${product.score.confidence})`
-                      : <span className="unavailable">unavailable</span>}
-                  </td>
-                  <td>
-                    {product.provenance?.provider ?? <span className="unavailable">unknown</span>}
-                  </td>
-                  <td>
-                    {product.freshness?.last_captured_at
-                      ? new Date(product.freshness.last_captured_at).toLocaleString()
-                      : <span className="unavailable">unknown</span>}
-                    {product.freshness?.stale ? (
-                      <div><span className="tag is-warning">Stale</span></div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Typography.Paragraph type="secondary" aria-live="polite">
+            {t('trends.summary', { count: products.length, sort: sortLabel })}
+            {isFetching ? ` · ${t('trends.refreshing')}` : ''}
+          </Typography.Paragraph>
+          <Table<ProductResult>
+            rowKey="id"
+            columns={columns}
+            dataSource={products}
+            pagination={false}
+            size="middle"
+            scroll={{ x: 720 }}
+          />
 
           <div className="mobile-only" style={{ marginTop: 16 }}>
             {products.map((product) => (
@@ -187,30 +219,25 @@ export default function TrendingPage() {
           </div>
 
           {data && data.pagination.total_pages > 1 ? (
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }} aria-label="Pagination">
-              <button
-                type="button"
-                className="button is-secondary"
-                disabled={!data.pagination.has_previous}
-                onClick={() => setParam('page', Math.max(1, (params.page ?? 1) - 1))}
-              >
-                Previous
-              </button>
-              <span className="muted" aria-live="polite">
-                Page {data.pagination.page} of {data.pagination.total_pages} · {data.pagination.total_items} total
-              </span>
-              <button
-                type="button"
-                className="button is-secondary"
-                disabled={!data.pagination.has_next}
-                onClick={() => setParam('page', (params.page ?? 1) + 1)}
-              >
-                Next
-              </button>
-            </div>
+            <Pagination
+              style={{ marginTop: 16, textAlign: 'right' }}
+              current={data.pagination.page}
+              pageSize={data.pagination.page_size}
+              total={data.pagination.total_items}
+              showTotal={(total, range) =>
+                `${range[0]}-${range[1]} ${t('common.of')} ${total} ${t('common.total')}`
+              }
+              onChange={(page) => setParam('page', page)}
+            />
           ) : null}
         </>
       )}
     </section>
   )
+}
+
+function confidenceColor(confidence: string): string {
+  if (confidence === 'high') return 'green'
+  if (confidence === 'medium') return 'orange'
+  return 'red'
 }

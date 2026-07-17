@@ -1,0 +1,208 @@
+{
+  "app": {
+    "brand": "Trend Workbench",
+    "environment": "Local workbench",
+    "language": "Language"
+  },
+  "nav": {
+    "trending": "Trending",
+    "categories": "Categories",
+    "imports": "Imports",
+    "back": "Back"
+  },
+  "route": {
+    "trending": "Trending Products",
+    "productDetail": "Product Detail",
+    "categories": "Catalog & Classification",
+    "imports": "CSV Imports",
+    "importDetail": "Import Detail"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "clear": "Clear filters",
+    "search": "Search",
+    "actions": "Actions",
+    "previous": "Previous",
+    "next": "Next",
+    "of": "of",
+    "page": "Page",
+    "total": "total",
+    "view": "View",
+    "back": "Back",
+    "refresh": "Refresh",
+    "viewDetails": "View details",
+    "empty": "No data",
+    "unavailable": "unavailable",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "trends": {
+    "title": "Trending Products",
+    "subtitle": "Compare Amazon-oriented trending products with stable category-relative scores.",
+    "filters": {
+      "marketplace": "Marketplace",
+      "category": "Canonical category",
+      "window": "Time window",
+      "sort": "Sort by",
+      "direction": "Direction",
+      "search": "Search title or ASIN"
+    },
+    "marketplaces": {
+      "all": "All marketplaces"
+    },
+    "categories": {
+      "all": "All categories"
+    },
+    "windows": {
+      "24h": "Last 24h",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "all": "All time"
+    },
+    "sorts": {
+      "score": "Hotspot score",
+      "updated": "Last update",
+      "price": "Price",
+      "created": "Discovered",
+      "asin": "ASIN"
+    },
+    "directions": {
+      "desc": "Descending",
+      "asc": "Ascending"
+    },
+    "table": {
+      "product": "Product",
+      "price": "Price",
+      "score": "Score",
+      "source": "Source",
+      "updated": "Last update",
+      "rank": "Rank"
+    },
+    "summary": "Showing {{count}} products sorted by {{sort}}",
+    "refreshing": "refreshing…",
+    "empty": {
+      "title": "No products match these filters",
+      "description": "Try widening the time window or clearing filters."
+    }
+  },
+  "product": {
+    "title": "Product",
+    "price": "Price",
+    "sellingPoints": "Selling points",
+    "reviewSummary": "Review summary",
+    "shop": "Shop",
+    "missing": "Missing fields",
+    "asin": "ASIN",
+    "marketplace": "Marketplace",
+    "noAsin": "no ASIN",
+    "backToTrending": "Back to trending",
+    "noDetail": "No detail snapshot recorded",
+    "completeTag": "Complete",
+    "incompleteTag": "Incomplete",
+    "estimatedTag": "Estimated metrics",
+    "staleTag": "Stale",
+    "score": {
+      "title": "Hotspot explanation",
+      "noScore": "No score snapshot available",
+      "noScoreDescription": "Run scoring to compute one.",
+      "total": "Total score",
+      "model": "model",
+      "window": "window",
+      "missing": "Missing components"
+    },
+    "classification": {
+      "title": "Classification",
+      "none": "No classification recorded.",
+      "via": "via",
+      "choose": "Choose canonical category…",
+      "assign": "Assign manually"
+    },
+    "history": {
+      "title": "Metric history",
+      "empty": "No observations recorded yet",
+      "insufficient": "At least two observations are required to draw a trend. Showing the latest known value.",
+      "insufficientTag": "Insufficient history"
+    }
+  },
+  "categories": {
+    "title": "Catalog & Classification",
+    "canonicalTitle": "Canonical categories",
+    "mappingsTitle": "Source mappings",
+    "reviewTitle": "Needs review",
+    "empty": {
+      "noCategories": "No canonical categories seeded yet",
+      "noUnresolved": "No unresolved products",
+      "noUnresolvedDescription": "All imported products have a confident canonical assignment."
+    },
+    "table": {
+      "product": "Product",
+      "region": "Region",
+      "sourceCategory": "Source category",
+      "provider": "Provider",
+      "source": "Source",
+      "canonical": "Canonical",
+      "confidence": "Confidence"
+    },
+    "loading": "Loading categories",
+    "mappingsLoading": "Loading mappings",
+    "unresolvedLoading": "Looking up unresolved products"
+  },
+  "imports": {
+    "title": "CSV Imports",
+    "uploadTitle": "Upload a new file",
+    "historyTitle": "Recent imports",
+    "file": "CSV file",
+    "region": "Default region",
+    "submit": "Upload",
+    "submitting": "Uploading…",
+    "error": "Please select a CSV file before submitting.",
+    "tooLarge": "File exceeds the {{size}} MB limit.",
+    "success": "Import job {{id}} accepted ({{count}} imported).",
+    "help": "Files must include a title column. Optional columns: marketplace, asin, category, price, selling_points, specs, review_summary, views, sales, etc.",
+    "empty": "No imports yet",
+    "emptyDescription": "Upload a CSV to create your first import job.",
+    "loading": "Loading import history",
+    "table": {
+      "file": "File",
+      "status": "Status",
+      "imported": "Imported",
+      "updated": "Updated",
+      "rejected": "Rejected",
+      "started": "Started"
+    },
+    "detail": {
+      "imported": "Imported rows",
+      "updated": "Updated rows",
+      "duplicates": "Duplicate rows",
+      "rejected": "Rejected rows",
+      "startedAt": "Started at",
+      "completedAt": "Completed at",
+      "summary": "Summary",
+      "outcomes": "Row outcomes",
+      "noOutcomes": "No row outcomes recorded.",
+      "row": "Row",
+      "reason": "Reason"
+    },
+    "status": {
+      "completed": "Completed",
+      "failed": "Failed",
+      "partially_completed": "Partially completed",
+      "running": "Running",
+      "pending": "Pending"
+    }
+  },
+  "confidence": {
+    "high": "high confidence",
+    "medium": "medium confidence",
+    "low": "low confidence"
+  },
+  "common_columns": {
+    "noImage": "No image",
+    "noSource": "unknown source",
+    "captured": "Last captured",
+    "noObservation": "no observation"
+  }
+}

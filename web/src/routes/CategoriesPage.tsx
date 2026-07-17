@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
+import { Card, Col, List, Row, Table, Tag, Typography } from 'antd'
 import { useCategories, useMappings, useTrends } from '../hooks/queries'
 import { EmptyState, LoadingState, ErrorState } from '../components/States'
+import { useI18n } from '../i18n/I18nProvider'
 
 export default function CategoriesPage() {
+  const { t } = useI18n()
   const categories = useCategories()
   const mappings = useMappings()
   const unresolved = useTrends({ page_size: 50, sort: 'score' })
@@ -12,96 +15,103 @@ export default function CategoriesPage() {
 
   return (
     <section>
-      <h2 className="card-title" style={{ marginBottom: 16 }}>Catalog &amp; Classification</h2>
-      <div className="layout-two-column">
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Canonical categories</h3>
-          </div>
-          {categories.isLoading ? (
-            <LoadingState label="Loading categories" rows={4} />
-          ) : categories.error ? (
-            <ErrorState error={categories.error as Error} />
-          ) : items.length === 0 ? (
-            <EmptyState title="No canonical categories seeded yet" />
-          ) : (
-            <ul className="category-list">
-              {items.map((cat) => (
-                <li key={cat.id}>
-                  <strong>{cat.name}</strong>{' '}
-                  <span className="muted">/{cat.slug}</span>
-                  {cat.parent_id ? <span className="muted"> · parent {cat.parent_id}</span> : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      <Typography.Title level={3} style={{ marginBottom: 16 }}>
+        {t('categories.title')}
+      </Typography.Title>
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Card title={t('categories.canonicalTitle')}>
+            {categories.isLoading ? (
+              <LoadingState label={t('categories.loading')} rows={4} />
+            ) : categories.error ? (
+              <ErrorState error={categories.error as Error} />
+            ) : items.length === 0 ? (
+              <EmptyState title={t('categories.empty.noCategories')} />
+            ) : (
+              <List
+                size="small"
+                dataSource={items}
+                renderItem={(cat) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={<strong>{cat.name}</strong>}
+                      description={
+                        <>
+                          <span style={{ color: '#6b7280' }}>/{cat.slug}</span>
+                          {cat.parent_id ? (
+                            <span style={{ color: '#6b7280' }}> · {cat.parent_id}</span>
+                          ) : null}
+                        </>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+          </Card>
+        </Col>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Source mappings</h3>
-          </div>
-          {mappings.isLoading ? (
-            <LoadingState label="Loading mappings" rows={4} />
-          ) : mappings.error ? (
-            <ErrorState error={mappings.error as Error} />
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Provider</th>
-                  <th>Source</th>
-                  <th>Canonical</th>
-                  <th>Confidence</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(mappings.data?.items ?? []).map((m) => (
-                  <tr key={m.id}>
-                    <td>{m.provider}</td>
-                    <td>{m.source_category_name ?? m.source_category_id}</td>
-                    <td>{m.canonical_category_id}</td>
-                    <td>{(m.confidence * 100).toFixed(0)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+        <Col xs={24} md={12}>
+          <Card title={t('categories.mappingsTitle')}>
+            {mappings.isLoading ? (
+              <LoadingState label={t('categories.mappingsLoading')} rows={4} />
+            ) : mappings.error ? (
+              <ErrorState error={mappings.error as Error} />
+            ) : (mappings.data?.items ?? []).length === 0 ? (
+              <EmptyState title={t('common.empty')} />
+            ) : (
+              <Table
+                size="small"
+                rowKey="id"
+                pagination={false}
+                dataSource={mappings.data?.items ?? []}
+                columns={[
+                  { title: t('categories.table.provider'), dataIndex: 'provider' },
+                  { title: t('categories.table.source'), dataIndex: 'source_category_name', render: (v, r) => v ?? r.source_category_id },
+                  { title: t('categories.table.canonical'), dataIndex: 'canonical_category_id' },
+                  {
+                    title: t('categories.table.confidence'),
+                    dataIndex: 'confidence',
+                    render: (v: number) => `${(v * 100).toFixed(0)}%`,
+                  },
+                ]}
+              />
+            )}
+          </Card>
+        </Col>
+      </Row>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header">
-          <h3 className="card-title">Needs review</h3>
-        </div>
+      <Card title={t('categories.reviewTitle')} style={{ marginTop: 16 }}>
         {unresolved.isLoading ? (
-          <LoadingState label="Looking up unresolved products" rows={3} />
+          <LoadingState label={t('categories.unresolvedLoading')} rows={3} />
         ) : unresolvedItems.length === 0 ? (
           <EmptyState
-            title="No unresolved products"
-            description="All imported products have a confident canonical assignment."
+            title={t('categories.empty.noUnresolved')}
+            description={t('categories.empty.noUnresolvedDescription')}
           />
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Region</th>
-                <th>Source category</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unresolvedItems.map((p) => (
-                <tr key={p.id}>
-                  <td><Link to={`/products/${p.id}`}>{p.title}</Link></td>
-                  <td>{p.region}</td>
-                  <td>{p.source_category ?? <span className="unavailable">unavailable</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table
+            size="small"
+            rowKey="id"
+            pagination={false}
+            dataSource={unresolvedItems}
+            columns={[
+              {
+                title: t('categories.table.product'),
+                dataIndex: 'title',
+                render: (value, record) => <Link to={`/products/${record.id}`}>{value}</Link>,
+              },
+              { title: t('categories.table.region'), dataIndex: 'region' },
+              {
+                title: t('categories.table.sourceCategory'),
+                dataIndex: 'source_category',
+                render: (v) =>
+                  v ?? <Tag bordered={false}>{t('common.unavailable')}</Tag>,
+              },
+            ]}
+          />
         )}
-      </div>
+      </Card>
     </section>
   )
 }

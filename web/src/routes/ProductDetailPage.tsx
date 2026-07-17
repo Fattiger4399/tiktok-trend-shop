@@ -9,36 +9,56 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Empty,
+  Row,
+  Select,
+  Space,
+  Statistic,
+  Tag,
+  Typography,
+  message,
+} from 'antd'
 import { useProduct, useProductMetrics, useCategories } from '../hooks/queries'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { assignProductCategory } from '../api/client'
+import { useI18n } from '../i18n/I18nProvider'
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { t, locale } = useI18n()
   const product = useProduct(id)
   const metrics = useProductMetrics(id, 'all')
   const categories = useCategories()
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [messageApi, contextHolder] = message.useMessage()
+  const dateLocale = locale === 'zh' ? 'zh-CN' : 'en-US'
 
-  if (product.isLoading) return <LoadingState label="Loading product" rows={6} />
+  if (product.isLoading) return <LoadingState label={t('common.loading')} rows={6} />
   if (product.error) return <ErrorState error={product.error as Error} />
   const detail = product.data
-  if (!detail) return <EmptyState title="Product not found" />
+  if (!detail) return <EmptyState title={t('common.empty')} />
 
   const handleAssign = async () => {
     if (!selectedCategory || !id) return
     try {
       await assignProductCategory(id, selectedCategory, 'workbench')
-      setFeedback('Category assigned.')
+      messageApi.success(t('product.classification.assign') + ' ✓')
+      setFeedback(t('product.classification.assign'))
       product.refetch()
     } catch (err) {
-      setFeedback((err as Error).message)
+      messageApi.error((err as Error).message)
     }
   }
 
   const history = (metrics.data?.items ?? []).map((item) => ({
-    captured_at: new Date(item.captured_at).toLocaleDateString(),
+    captured_at: new Date(item.captured_at).toLocaleDateString(dateLocale),
     views: item.metrics.views ?? 0,
     sales: item.metrics.sales ?? 0,
     price: item.metrics.price ?? null,
@@ -46,149 +66,177 @@ export default function ProductDetailPage() {
   }))
 
   const priceSeries = history.filter((row) => row.price !== null)
+  const completeness = detail.detail?.completeness === 'complete'
+  const isEstimated = detail.latest_snapshot?.metric_kind === 'estimated'
 
   return (
     <section aria-labelledby="product-detail-title">
+      {contextHolder}
       <p>
-        <Link to="/trends">← Back to trending</Link>
+        <Link to="/trends">← {t('product.backToTrending')}</Link>
       </p>
-      <h2 id="product-detail-title" className="card-title" style={{ margin: '12px 0' }}>
+      <Typography.Title id="product-detail-title" level={3} style={{ margin: '12px 0' }}>
         {detail.product.title}
-      </h2>
-      <div className="muted" style={{ marginBottom: 16 }}>
-        {detail.product.marketplace ? `${detail.product.marketplace} · ` : ''}
-        {detail.product.asin ?? 'no ASIN'} · last update{' '}
-        {detail.latest_snapshot?.captured_at
-          ? new Date(detail.latest_snapshot.captured_at).toLocaleString()
-          : 'unknown'}
-        {detail.latest_snapshot?.metric_kind === 'estimated' ? (
-          <span className="tag is-warning" style={{ marginLeft: 8 }}>Estimated metrics</span>
-        ) : null}
-      </div>
+      </Typography.Title>
+      <Space size={8} wrap style={{ marginBottom: 16, color: '#6b7280' }}>
+        <span>
+          {detail.product.marketplace ? `${detail.product.marketplace} · ` : ''}
+          {detail.product.asin ?? t('product.noAsin')}
+        </span>
+        <span>·</span>
+        <span>
+          {t('trends.table.updated')}{' '}
+          {detail.latest_snapshot?.captured_at
+            ? new Date(detail.latest_snapshot.captured_at).toLocaleString(dateLocale)
+            : t('common.unavailable')}
+        </span>
+        {isEstimated ? <Tag color="orange">{t('product.estimatedTag')}</Tag> : null}
+      </Space>
 
-      <div className="layout-two-column">
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Product detail</h3>
-            {detail.detail?.completeness === 'complete' ? (
-              <span className="tag is-positive">Complete</span>
+      <Row gutter={16}>
+        <Col xs={24} md={14}>
+          <Card
+            title={t('product.title')}
+            extra={
+              completeness ? (
+                <Tag color="green">{t('product.completeTag')}</Tag>
+              ) : (
+                <Tag color="orange">{t('product.incompleteTag')}</Tag>
+              )
+            }
+          >
+            {detail.detail ? (
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label={t('product.price')}>
+                  {detail.detail.price !== null && detail.detail.price !== undefined ? (
+                    `${detail.detail.currency ?? ''} ${detail.detail.price.toFixed(2)}`.trim()
+                  ) : (
+                    <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label={t('product.sellingPoints')}>
+                  {detail.detail.selling_points?.length
+                    ? detail.detail.selling_points.join(', ')
+                    : <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>}
+                </Descriptions.Item>
+                <Descriptions.Item label={t('product.reviewSummary')}>
+                  {detail.detail.review_summary ?? (
+                    <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label={t('product.shop')}>
+                  {detail.detail.shop_name ?? (
+                    <span style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('common.unavailable')}</span>
+                  )}
+                  {detail.detail.brand ? ` · ${detail.detail.brand}` : ''}
+                </Descriptions.Item>
+                <Descriptions.Item label={t('product.missing')}>
+                  {detail.detail.missing_fields?.length
+                    ? detail.detail.missing_fields.join(', ')
+                    : '—'}
+                </Descriptions.Item>
+              </Descriptions>
             ) : (
-              <span className="tag is-warning">Incomplete</span>
+              <Empty description={t('product.noDetail')} />
             )}
-          </div>
-          {detail.detail ? (
-            <dl>
-              <dt>Price</dt>
-              <dd>
-                {detail.detail.price !== null && detail.detail.price !== undefined
-                  ? `${detail.detail.currency ?? ''} ${detail.detail.price.toFixed(2)}`.trim()
-                  : <span className="unavailable">unavailable</span>}
-              </dd>
-              <dt>Selling points</dt>
-              <dd>
-                {detail.detail.selling_points?.length
-                  ? detail.detail.selling_points.join(', ')
-                  : <span className="unavailable">unavailable</span>}
-              </dd>
-              <dt>Review summary</dt>
-              <dd>
-                {detail.detail.review_summary ?? <span className="unavailable">unavailable</span>}
-              </dd>
-              <dt>Shop</dt>
-              <dd>
-                {detail.detail.shop_name ?? <span className="unavailable">unavailable</span>}
-                {detail.detail.brand ? ` · ${detail.detail.brand}` : ''}
-              </dd>
-              <dt>Missing fields</dt>
-              <dd>
-                {detail.detail.missing_fields?.length
-                  ? detail.detail.missing_fields.join(', ')
-                  : '—'}
-              </dd>
-            </dl>
-          ) : (
-            <EmptyState title="No detail snapshot recorded" />
-          )}
-        </div>
+          </Card>
+        </Col>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Hotspot explanation</h3>
+        <Col xs={24} md={10}>
+          <Card
+            title={t('product.score.title')}
+            extra={
+              detail.score ? (
+                <Tag color={
+                  detail.score.confidence === 'high'
+                    ? 'green'
+                    : detail.score.confidence === 'medium'
+                      ? 'orange'
+                      : 'red'
+                }>
+                  {t(`confidence.${detail.score.confidence}` as 'confidence.high')}
+                </Tag>
+              ) : null
+            }
+          >
             {detail.score ? (
-              <span className={`tag ${confidenceTag(detail.score.confidence)}`}>
-                {detail.score.confidence} confidence
-              </span>
-            ) : null}
-          </div>
-          {detail.score ? (
-            <>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Statistic
+                  title={t('product.score.total')}
+                  value={detail.score.total_score}
+                  precision={2}
+                  suffix={`${t('product.score.model')} ${detail.score.model_version} · ${t('product.score.window')} ${detail.score.time_window}`}
+                />
+                <Space wrap>
+                  {Object.entries(detail.score.components).map(([key, value]) => (
+                    <Tag key={key} bordered={false}>
+                      <strong>{key}</strong>: {(value as number).toFixed(2)}
+                    </Tag>
+                  ))}
+                </Space>
+                {detail.score.missing_components?.length ? (
+                  <Typography.Text type="secondary">
+                    {t('product.score.missing')}: {detail.score.missing_components.join(', ')}
+                  </Typography.Text>
+                ) : null}
+              </Space>
+            ) : (
+              <Empty description={t('product.score.noScore')} />
+            )}
+            <Typography.Title level={5} style={{ marginTop: 16 }}>
+              {t('product.classification.title')}
+            </Typography.Title>
+            {detail.assignment ? (
               <p>
-                Total score: <strong>{detail.score.total_score.toFixed(2)}</strong> · model {detail.score.model_version} · window {detail.score.time_window}
+                <strong>{detail.assignment.canonical_category_id ?? '—'}</strong>{' '}
+                <span style={{ color: '#6b7280' }}>
+                  {t('product.classification.via')} {detail.assignment.method} (
+                  {Math.round(detail.assignment.confidence * 100)}%)
+                </span>
               </p>
-              <ul>
-                {Object.entries(detail.score.components).map(([key, value]) => (
-                  <li key={key}>
-                    <span>{key}</span>:{' '}
-                    <strong>{(value as number).toFixed(2)}</strong>
-                  </li>
-                ))}
-              </ul>
-              {detail.score.missing_components?.length ? (
-                <p className="muted">
-                  Missing components: {detail.score.missing_components.join(', ')}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <EmptyState title="No score snapshot available" description="Run scoring to compute one." />
-          )}
-          <hr style={{ margin: '12px 0' }} />
-          <h4 className="card-title">Classification</h4>
-          {detail.assignment ? (
-            <p>
-              <strong>{detail.assignment.canonical_category_id ?? 'unresolved'}</strong>{' '}
-              <span className="muted">
-                via {detail.assignment.method} ({Math.round(detail.assignment.confidence * 100)}%)
-              </span>
-            </p>
-          ) : (
-            <p className="muted">No classification recorded.</p>
-          )}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select
-              className="select"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              aria-label="Assign canonical category"
-            >
-              <option value="">Choose canonical category…</option>
-              {categories.data?.items?.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-            <button type="button" className="button" onClick={handleAssign} disabled={!selectedCategory}>
-              Assign manually
-            </button>
-          </div>
-          {feedback ? <p className="muted" role="status">{feedback}</p> : null}
-        </div>
-      </div>
+            ) : (
+              <Typography.Text type="secondary">{t('product.classification.none')}</Typography.Text>
+            )}
+            <Space.Compact style={{ width: '100%' }}>
+              <Select
+                style={{ width: '70%' }}
+                value={selectedCategory}
+                onChange={setSelectedCategory}
+                placeholder={t('product.classification.choose')}
+                options={(categories.data?.items ?? []).map((cat) => ({
+                  value: cat.id,
+                  label: cat.name,
+                }))}
+              />
+              <Button
+                type="primary"
+                style={{ width: '30%' }}
+                onClick={handleAssign}
+                disabled={!selectedCategory}
+              >
+                {t('product.classification.assign')}
+              </Button>
+            </Space.Compact>
+            {feedback ? (
+              <Alert style={{ marginTop: 8 }} type="success" message={feedback} />
+            ) : null}
+          </Card>
+        </Col>
+      </Row>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header">
-          <h3 className="card-title">Metric history</h3>
-          {history.length < 2 ? (
-            <span className="tag is-warning">Insufficient history</span>
-          ) : null}
-        </div>
+      <Card
+        title={t('product.history.title')}
+        style={{ marginTop: 16 }}
+        extra={
+          history.length < 2 ? <Tag color="orange">{t('product.history.insufficientTag')}</Tag> : null
+        }
+      >
         {history.length === 0 ? (
-          <EmptyState title="No observations recorded yet" />
+          <Empty description={t('product.history.empty')} />
         ) : history.length < 2 ? (
-          <p className="muted">
-            At least two observations are required to draw a trend. Showing the latest known value.
-          </p>
+          <Typography.Text type="secondary">{t('product.history.insufficient')}</Typography.Text>
         ) : (
-          <div style={{ display: 'grid', gap: 16 }}>
+          <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={history}>
                 <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
@@ -210,15 +258,9 @@ export default function ProductDetailPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : null}
-          </div>
+          </Space>
         )}
-      </div>
+      </Card>
     </section>
   )
-}
-
-function confidenceTag(confidence: string): string {
-  if (confidence === 'high') return 'is-positive'
-  if (confidence === 'medium') return 'is-warning'
-  return 'is-negative'
 }

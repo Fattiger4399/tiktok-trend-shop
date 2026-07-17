@@ -1,4 +1,5 @@
-import '../styles/global.css'
+import { Alert, Button, Empty, Skeleton, Space } from 'antd'
+import type { ReactNode } from 'react'
 
 export interface LoadingStateProps {
   label?: string
@@ -7,13 +8,11 @@ export interface LoadingStateProps {
 
 export function LoadingState({ label = 'Loading', rows = 4 }: LoadingStateProps) {
   return (
-    <div className="state-loading" role="status" aria-live="polite">
-      <span className="state-loading-label">{label}</span>
-      <div className="state-loading-skeletons">
-        {Array.from({ length: rows }).map((_, idx) => (
-          <div key={idx} className="state-loading-skeleton" />
-        ))}
-      </div>
+    <div role="status" aria-live="polite" style={{ padding: '16px 0' }}>
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <span style={{ color: '#6b7280' }}>{label}</span>
+        <Skeleton active paragraph={{ rows }} />
+      </Space>
     </div>
   )
 }
@@ -21,16 +20,21 @@ export function LoadingState({ label = 'Loading', rows = 4 }: LoadingStateProps)
 export interface EmptyStateProps {
   title: string
   description?: string
-  action?: React.ReactNode
+  action?: ReactNode
 }
 
 export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div className="state-empty" role="status">
-      <p className="state-empty-title">{title}</p>
-      {description ? <p className="state-empty-description">{description}</p> : null}
-      {action ? <div className="state-empty-action">{action}</div> : null}
-    </div>
+    <Empty
+      description={
+        <Space direction="vertical" size={4}>
+          <span style={{ fontWeight: 600 }}>{title}</span>
+          {description ? <span style={{ color: '#6b7280' }}>{description}</span> : null}
+        </Space>
+      }
+    >
+      {action}
+    </Empty>
   )
 }
 
@@ -41,14 +45,18 @@ export interface ErrorStateProps {
 
 export function ErrorState({ error, onRetry }: ErrorStateProps) {
   return (
-    <div className="state-error" role="alert">
-      <p className="state-error-title">Something went wrong.</p>
-      <p className="state-error-message">{error.message}</p>
-      {onRetry ? (
-        <button type="button" className="state-error-retry" onClick={onRetry}>
-          Retry
-        </button>
-      ) : null}
-    </div>
+    <Alert
+      type="error"
+      showIcon
+      message="Something went wrong."
+      description={error.message}
+      action={
+        onRetry ? (
+          <Button size="small" onClick={onRetry}>
+            Retry
+          </Button>
+        ) : null
+      }
+    />
   )
 }
