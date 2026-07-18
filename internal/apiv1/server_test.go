@@ -16,7 +16,9 @@ import (
 	"tiktok-trend-shop/internal/auth"
 	"tiktok-trend-shop/internal/category"
 	"tiktok-trend-shop/internal/copygen"
+	"tiktok-trend-shop/internal/dossier"
 	"tiktok-trend-shop/internal/importer"
+	"tiktok-trend-shop/internal/mediagen"
 	"tiktok-trend-shop/internal/product"
 	"tiktok-trend-shop/internal/request"
 	"tiktok-trend-shop/internal/review"
@@ -62,9 +64,11 @@ func newHarness(t *testing.T) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ds := dossier.NewRepository(db)
+	mg := mediagen.NewService(pr, mediagen.NewAssetStore(db, filepath.Join(t.TempDir(), "assets")), mediagen.NewRepository(db), &mediagen.MockProvider{})
 	return &harness{
 		t: t, db: db, products: pr, auth: authSvc, token: token,
-		server: apiv1.NewServer(db, pr, cat, imp, sc, rq, cg, rv, authSvc),
+		server: apiv1.NewServer(db, pr, cat, imp, sc, rq, cg, rv, authSvc, ds, mg),
 	}
 }
 
@@ -854,5 +858,161 @@ func TestRejectRoute(t *testing.T) {
 	rr = h.do(http.MethodPost, "/api/v1/requests/"+req.ID+"/generate", "", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestGetProductDetailNullables(t *testing.T) {
+	h := newHarness(t)
+	p := h.mustProduct("Plain Lamp")
+	rr := h.do(http.MethodGet, "/api/v1/products/"+p.ID, "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"detail", "latest_snapshot", "score", "assignment"} {
+		if string(payload[key]) != "null" {
+			t.Fatalf("expected %s to be null, got %s", key, payload[key])
+		}
+	}
+}
+
+func TestGetProductDetailSnakeCaseKeys(t *testing.T) {
+	h := newHarness(t)
+	p := h.mustProduct("Lamp")
+	price := 19.99
+	if _, err := h.products.AddDetailSnapshot(context.Background(), product.DetailInput{
+		ProductID: p.ID, Provider: "manual", Price: &price,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rr := h.do(http.MethodGet, "/api/v1/products/"+p.ID, "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var payload struct {
+		Detail map[string]json.RawMessage `json:"detail"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Detail == nil {
+		t.Fatalf("expected detail present, body=%s", rr.Body.String())
+	}
+	if _, ok := payload.Detail["price"]; !ok {
+		t.Fatalf("expected snake_case key price, got keys %v", payload.Detail)
+	}
+	if _, ok := payload.Detail["Price"]; ok {
+		t.Fatalf("unexpected PascalCase key leaked into response")
+	}
+}
+
+func TestDossierAssetRoundTrip(t *testing.T) {
+	h := newHarness(t)
+	p := h.mustProduct("Desk Lamp")
+	jsonHeaders := map[string]string{"Content-Type": "application/json"}
+
+	rr := h.do(http.MethodPost, "/api/v1/products/"+p.ID+"/assets",
+		`{"kind":"image","url":"https://example.com/lamp.jpg","source":"amazon.com","note":"主图"}`,
+		jsonHeaders)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var created dossier.Asset
+	if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(created.ID, "da_") {
+		t.Fatalf("expected da_ prefixed id got %q", created.ID)
+	}
+	if created.Kind != "image" || created.URL != "https://example.com/lamp.jpg" ||
+		created.Source != "amazon.com" || created.CreatedBy != "admin" {
+		t.Fatalf("unexpected asset %#v", created)
+	}
+
+	rr = h.do(http.MethodGet, "/api/v1/products/"+p.ID+"/assets", "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var list struct {
+		Items []dossier.Asset `json:"items"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 1 || list.Items[0].ID != created.ID {
+		t.Fatalf("unexpected list %#v", list.Items)
+	}
+
+	// kind filter narrows the list.
+	rr = h.do(http.MethodGet, "/api/v1/products/"+p.ID+"/assets?kind=text", "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 0 {
+		t.Fatalf("expected empty text filter result got %#v", list.Items)
+	}
+
+	rr = h.do(http.MethodDelete, "/api/v1/products/"+p.ID+"/assets/"+created.ID, "", nil)
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	rr = h.do(http.MethodGet, "/api/v1/products/"+p.ID+"/assets", "", nil)
+	if err := json.Unmarshal(rr.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 0 {
+		t.Fatalf("expected asset removed got %#v", list.Items)
+	}
+}
+
+func TestCreateDossierAssetValidation(t *testing.T) {
+	h := newHarness(t)
+	p := h.mustProduct("Desk Lamp")
+	jsonHeaders := map[string]string{"Content-Type": "application/json"}
+
+	cases := []struct {
+		body  string
+		field string
+	}{
+		{`{"url":"https://a/1.jpg"}`, "kind"},
+		{`{"kind":"video","url":"https://a/1.jpg"}`, "kind"},
+		{`{"kind":"image"}`, "url"},
+		{`{"kind":"link"}`, "url"},
+		{`{"kind":"text"}`, "content"},
+	}
+	for _, c := range cases {
+		rr := h.do(http.MethodPost, "/api/v1/products/"+p.ID+"/assets", c.body, jsonHeaders)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %s got %d body=%s", c.body, rr.Code, rr.Body.String())
+		}
+		if env := errorEnvelopeOf(t, rr); env.Code != "validation_error" || env.Field != c.field {
+			t.Fatalf("expected field %q for %s got %#v", c.field, c.body, env)
+		}
+	}
+}
+
+func TestDossierAssetNotFound(t *testing.T) {
+	h := newHarness(t)
+	p := h.mustProduct("Desk Lamp")
+	jsonHeaders := map[string]string{"Content-Type": "application/json"}
+
+	rr := h.do(http.MethodPost, "/api/v1/products/prod_missing/assets",
+		`{"kind":"text","content":"x"}`, jsonHeaders)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	rr = h.do(http.MethodGet, "/api/v1/products/prod_missing/assets", "", nil)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	rr = h.do(http.MethodDelete, "/api/v1/products/"+p.ID+"/assets/da_missing", "", nil)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 got %d body=%s", rr.Code, rr.Body.String())
 	}
 }

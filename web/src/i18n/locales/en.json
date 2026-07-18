@@ -150,7 +150,32 @@
     },
     "selectAndRequest": "Select & submit request",
     "requestsTitle": "Related requests",
-    "requestsEmpty": "No material requests for this product yet"
+    "requestsEmpty": "No material requests for this product yet",
+    "dossier": {
+      "title": "Web Assets",
+      "empty": "No assets yet. Add the first promotional material collected from the web.",
+      "kind": "Kind",
+      "kinds": {
+        "image": "Image",
+        "text": "Text",
+        "link": "Link"
+      },
+      "url": "Asset URL",
+      "urlPlaceholder": "https://…",
+      "content": "Text content",
+      "contentPlaceholder": "Paste promotional copy or review excerpts",
+      "source": "Source site",
+      "sourcePlaceholder": "e.g. amazon.com / 1688 / manual",
+      "note": "Note",
+      "notePlaceholder": "Extra note (optional)",
+      "add": "Add asset",
+      "added": "Asset added",
+      "deleted": "Asset deleted",
+      "delete": "Delete",
+      "needUrl": "Image/link assets require a URL",
+      "needContent": "Text assets require content",
+      "by": "added by"
+    }
   },
   "categories": {
     "title": "Catalog & Classification",

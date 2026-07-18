@@ -69,7 +69,8 @@ describe('WorkbenchShell', () => {
     expect(screen.getByRole('button', { name: /Log out/ })).toBeInTheDocument()
   })
 
-  it('hides operations menus for client users', async () => {
+  it('shows all menus for client users (single-end mode)', async () => {
+    // 单端模式：角色墙停用，client 与 operator 看到相同的全量菜单。
     mockedFetchMe.mockResolvedValue(clientUser)
     render(
       <TestProviders>
@@ -79,8 +80,8 @@ describe('WorkbenchShell', () => {
     expect(await screen.findByText(/Client A · Client/)).toBeInTheDocument()
     expect(screen.getByText('Trending')).toBeInTheDocument()
     expect(screen.getByText('Requests')).toBeInTheDocument()
-    expect(screen.queryByText('Imports')).not.toBeInTheDocument()
-    expect(screen.queryByText('Categories')).not.toBeInTheDocument()
-    expect(screen.queryByText('Deliveries')).not.toBeInTheDocument()
+    expect(screen.getByText('Imports')).toBeInTheDocument()
+    expect(screen.getByText('Categories')).toBeInTheDocument()
+    expect(screen.getByText('Deliveries')).toBeInTheDocument()
   })
 })

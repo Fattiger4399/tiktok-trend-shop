@@ -146,35 +146,50 @@ func TestOperatorManagesUsers(t *testing.T) {
 	}
 }
 
-func TestClientForbiddenRoutes(t *testing.T) {
+func TestClientCanAccessOperatorRoutes(t *testing.T) {
+	// 单端模式：角色墙停用，client 与 operator 等价，原 403 用例改为
+	// 断言 client 可访问全部路由。恢复 RBAC 时这些应重新断言 403。
 	h := newHarness(t)
 	h.mustUser("client-a", "secret-a", auth.RoleClient)
 	clientToken := h.mustLogin("client-a", "secret-a")
 	jsonHeaders := map[string]string{"Content-Type": "application/json"}
 
-	for _, tc := range []struct {
-		method string
-		path   string
-		body   string
-	}{
-		{http.MethodGet, "/api/v1/imports", ""},
-		{http.MethodGet, "/api/v1/users", ""},
-		{http.MethodPost, "/api/v1/users", `{"username":"x","password":"y","role":"client"}`},
-		{http.MethodGet, "/api/v1/deliveries", ""},
-		{http.MethodPost, "/api/v1/requests/req_any/generate", ""},
-		{http.MethodPost, "/api/v1/requests/req_any/deliver", `{"variant_id":"cv_x"}`},
-	} {
-		rr := h.doAs(clientToken, tc.method, tc.path, tc.body, jsonHeaders)
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("%s %s: expected 403 got %d body=%s", tc.method, tc.path, rr.Code, rr.Body.String())
-		}
-		if env := errorEnvelopeOf(t, rr); env.Code != "forbidden" {
-			t.Fatalf("%s %s: expected forbidden envelope got %#v", tc.method, tc.path, env)
-		}
+	rr := h.doAs(clientToken, http.MethodGet, "/api/v1/imports", "", jsonHeaders)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("imports: expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = h.doAs(clientToken, http.MethodGet, "/api/v1/users", "", jsonHeaders)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("users: expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = h.doAs(clientToken, http.MethodPost, "/api/v1/users",
+		`{"username":"client-b","password":"secret-b","role":"client"}`, jsonHeaders)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create user: expected 201 got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = h.doAs(clientToken, http.MethodGet, "/api/v1/deliveries", "", jsonHeaders)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("deliveries: expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// Unknown ids still surface the handler's own 404, not a role 403.
+	rr = h.doAs(clientToken, http.MethodPost, "/api/v1/requests/req_any/generate", "", jsonHeaders)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("generate: expected 404 got %d body=%s", rr.Code, rr.Body.String())
+	}
+	rr = h.doAs(clientToken, http.MethodPost, "/api/v1/requests/req_any/deliver",
+		`{"variant_id":"cv_x"}`, jsonHeaders)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("deliver: expected 404 got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestClientSeesOnlyOwnRequests(t *testing.T) {
+func TestClientSeesAllRequests(t *testing.T) {
+	// 单端模式：列表不再按 client_id 过滤，创建时 body 的 client_id 原样
+	// 生效（可空），任何登录用户可读任何需求。
 	h := newHarness(t)
 	p := h.mustProduct("Lamp")
 	clientA := h.mustUser("client-a", "secret-a", auth.RoleClient)
@@ -196,11 +211,11 @@ func TestClientSeesOnlyOwnRequests(t *testing.T) {
 		}
 		return created
 	}
-	own := create(clientA.ID)
+	create(clientA.ID)
 	other := create("client-b-id")
 	create("")
 
-	// The client list is scoped to its own requests.
+	// The client sees the full, unfiltered list.
 	rr := h.doAs(tokenA, http.MethodGet, "/api/v1/requests", "", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
@@ -214,11 +229,11 @@ func TestClientSeesOnlyOwnRequests(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &list); err != nil {
 		t.Fatal(err)
 	}
-	if list.Pagination.TotalItems != 1 || len(list.Items) != 1 || list.Items[0].ID != own.ID {
-		t.Fatalf("expected only the own request got %#v", list)
+	if list.Pagination.TotalItems != 3 || len(list.Items) != 3 {
+		t.Fatalf("expected all 3 requests got %#v", list)
 	}
 
-	// A client-supplied client_id is ignored; the request belongs to itself.
+	// A client-supplied client_id is honored as-is.
 	rr = h.doAs(tokenA, http.MethodPost, "/api/v1/requests",
 		`{"product_id":"`+p.ID+`","usage":"ad","client_id":"spoofed"}`, jsonHeaders)
 	if rr.Code != http.StatusCreated {
@@ -228,61 +243,39 @@ func TestClientSeesOnlyOwnRequests(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &spoofed); err != nil {
 		t.Fatal(err)
 	}
-	if spoofed.ClientID != clientA.ID {
-		t.Fatalf("expected forced client_id %q got %q", clientA.ID, spoofed.ClientID)
+	if spoofed.ClientID != "spoofed" {
+		t.Fatalf("expected client_id from body got %q", spoofed.ClientID)
 	}
 
-	// Reading somebody else's request is forbidden.
+	// Reading somebody else's request is allowed.
 	rr = h.doAs(tokenA, http.MethodGet, "/api/v1/requests/"+other.ID, "", nil)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestClientCannotApproveOthersRequest(t *testing.T) {
+func TestClientCanActOnOthersRequest(t *testing.T) {
+	// 单端模式：client 可生成、审批、打回、查看任何需求；actor 仍强制为
+	// 登录用户名。
 	h := newHarness(t)
 	p := h.mustProductWithDetail("护眼台灯")
 	clientA := h.mustUser("client-a", "secret-a", auth.RoleClient)
 	tokenA := h.mustLogin("client-a", "secret-a")
 	jsonHeaders := map[string]string{"Content-Type": "application/json"}
 
-	// An operator-owned request (no client_id) is out of reach for the client.
+	// An operator-owned request (no client_id) is fully reachable.
 	req := h.mustRequest(p.ID, "短视频带货")
 	variants := h.mustGenerate(req.ID)
-	rr := h.doAs(tokenA, http.MethodPost, "/api/v1/requests/"+req.ID+"/approve",
-		`{"variant_id":"`+variants[0].ID+`"}`, jsonHeaders)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d body=%s", rr.Code, rr.Body.String())
-	}
-	rr = h.doAs(tokenA, http.MethodPost, "/api/v1/requests/"+req.ID+"/reject",
-		`{"reason":"不行"}`, jsonHeaders)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d body=%s", rr.Code, rr.Body.String())
-	}
-	rr = h.doAs(tokenA, http.MethodGet, "/api/v1/requests/"+req.ID+"/variants", "", nil)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d body=%s", rr.Code, rr.Body.String())
-	}
-	rr = h.doAs(tokenA, http.MethodGet, "/api/v1/requests/"+req.ID+"/review", "", nil)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d body=%s", rr.Code, rr.Body.String())
+
+	rr := h.doAs(tokenA, http.MethodGet, "/api/v1/requests/"+req.ID+"/variants", "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("variants: expected 200 got %d body=%s", rr.Code, rr.Body.String())
 	}
 
-	// Approving its own request works and the actor is forced to the login name.
-	rr = h.doAs(tokenA, http.MethodPost, "/api/v1/requests",
-		`{"product_id":"`+p.ID+`","usage":"短视频带货"}`, jsonHeaders)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("expected 201 got %d body=%s", rr.Code, rr.Body.String())
-	}
-	var own request.MaterialRequest
-	if err := json.Unmarshal(rr.Body.Bytes(), &own); err != nil {
-		t.Fatal(err)
-	}
-	ownVariants := h.mustGenerate(own.ID)
-	rr = h.doAs(tokenA, http.MethodPost, "/api/v1/requests/"+own.ID+"/approve",
-		`{"variant_id":"`+ownVariants[0].ID+`","actor":"spoofed"}`, jsonHeaders)
+	rr = h.doAs(tokenA, http.MethodPost, "/api/v1/requests/"+req.ID+"/approve",
+		`{"variant_id":"`+variants[0].ID+`","actor":"spoofed"}`, jsonHeaders)
 	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d body=%s", rr.Code, rr.Body.String())
+		t.Fatalf("approve: expected 200 got %d body=%s", rr.Code, rr.Body.String())
 	}
 	var approveResp struct {
 		Event review.ReviewEvent `json:"event"`
@@ -292,6 +285,20 @@ func TestClientCannotApproveOthersRequest(t *testing.T) {
 	}
 	if approveResp.Event.Actor != clientA.Username {
 		t.Fatalf("expected actor forced to %q got %q", clientA.Username, approveResp.Event.Actor)
+	}
+
+	rr = h.doAs(tokenA, http.MethodGet, "/api/v1/requests/"+req.ID+"/review", "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("review: expected 200 got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// Reject works too, on a fresh operator-owned request.
+	other := h.mustRequest(p.ID, "短视频带货")
+	h.mustGenerate(other.ID)
+	rr = h.doAs(tokenA, http.MethodPost, "/api/v1/requests/"+other.ID+"/reject",
+		`{"reason":"不行"}`, jsonHeaders)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("reject: expected 200 got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 

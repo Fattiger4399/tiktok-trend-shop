@@ -49,29 +49,25 @@ func bearerToken(r *http.Request) (string, bool) {
 	return token, ok && token != ""
 }
 
-// operatorOnly restricts a handler to operator users; clients get a 403.
+// operatorOnly historically restricted a handler to operator users; clients
+// got a 403.
+//
+// 单端模式（single-end mode）：角色墙已停用，所有登录用户等价于全功能，
+// 此包装现在直通。恢复 RBAC 时还原为：校验 UserFromContext 且
+// user.Role != auth.RoleOperator 时写 403 "operator role required"。
 func (s *Server) operatorOnly(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, ok := UserFromContext(r.Context())
-		if !ok || user.Role != auth.RoleOperator {
-			WriteError(w, http.StatusForbidden, "forbidden", "operator role required")
-			return
-		}
 		h(w, r)
 	}
 }
 
-// clientOwnsRequest enforces client data isolation: client users may only
-// touch material requests whose client_id matches their own user id.
+// clientOwnsRequest historically enforced client data isolation: client users
+// could only touch material requests whose client_id matched their own id.
+//
+// 单端模式：所有权检查停用，任何登录用户可操作任何需求，此函数恒为 true。
+// 恢复时还原为：user.Role == auth.RoleClient 且 clientID != user.ID 时写
+// 403 "request belongs to another client" 并返回 false。
 func clientOwnsRequest(w http.ResponseWriter, r *http.Request, clientID string) bool {
-	user, ok := UserFromContext(r.Context())
-	if !ok || user.Role != auth.RoleClient {
-		return true
-	}
-	if clientID != user.ID {
-		WriteError(w, http.StatusForbidden, "forbidden", "request belongs to another client")
-		return false
-	}
 	return true
 }
 
@@ -93,8 +89,8 @@ func resolveActor(r *http.Request, bodyActor string) string {
 }
 
 // requestAccessible reports whether the current user may see or act on the
-// given material request: missing requests produce a 404 and requests owned
-// by another client produce a 403.
+// given material request: missing requests produce a 404. 单端模式下所有权
+// 检查（clientOwnsRequest）为直通，任何登录用户均可访问。
 func (s *Server) requestAccessible(w http.ResponseWriter, r *http.Request, id string) bool {
 	req, err := s.request.Get(r.Context(), id)
 	if err == sql.ErrNoRows {

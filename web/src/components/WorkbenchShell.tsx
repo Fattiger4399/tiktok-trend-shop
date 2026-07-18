@@ -34,24 +34,17 @@ export default function WorkbenchShell() {
     return t(`route.${selectedKey}` as 'route.trends')
   }, [location.pathname, selectedKey, t])
 
-  // Clients only browse trends and track their own requests; operations
-  // menus (categories, imports, deliveries) are operator-only.
+  // 单端模式：角色墙停用，所有登录用户看到全部菜单（不再按角色过滤）。
+  // 恢复 RBAC 时按 user?.role === 'operator' 条件渲染 categories/imports/deliveries。
   const menuItems = useMemo(() => {
-    const operator = user?.role === 'operator'
     return [
       { key: 'trends', icon: <TrendingUp size={16} aria-hidden />, label: t('nav.trending') },
-      ...(operator
-        ? [
-            { key: 'categories', icon: <Tags size={16} aria-hidden />, label: t('nav.categories') },
-            { key: 'imports', icon: <Upload size={16} aria-hidden />, label: t('nav.imports') },
-          ]
-        : []),
+      { key: 'categories', icon: <Tags size={16} aria-hidden />, label: t('nav.categories') },
+      { key: 'imports', icon: <Upload size={16} aria-hidden />, label: t('nav.imports') },
       { key: 'requests', icon: <FileText size={16} aria-hidden />, label: t('nav.requests') },
-      ...(operator
-        ? [{ key: 'deliveries', icon: <PackageCheck size={16} aria-hidden />, label: t('nav.deliveries') }]
-        : []),
+      { key: 'deliveries', icon: <PackageCheck size={16} aria-hidden />, label: t('nav.deliveries') },
     ]
-  }, [user?.role, t])
+  }, [t])
 
   const handleLogout = () => {
     logout()

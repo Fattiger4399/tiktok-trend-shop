@@ -10,7 +10,9 @@ import (
 	"tiktok-trend-shop/internal/auth"
 	"tiktok-trend-shop/internal/category"
 	"tiktok-trend-shop/internal/copygen"
+	"tiktok-trend-shop/internal/dossier"
 	"tiktok-trend-shop/internal/importer"
+	"tiktok-trend-shop/internal/mediagen"
 	"tiktok-trend-shop/internal/product"
 	"tiktok-trend-shop/internal/request"
 	"tiktok-trend-shop/internal/review"
@@ -28,11 +30,13 @@ type Server struct {
 	copygen  *copygen.Service
 	review   *review.Service
 	auth     *auth.Service
+	dossier  *dossier.Repository
+	mediagen *mediagen.Service
 }
 
 // NewServer constructs a Server with the supplied dependencies.
-func NewServer(db *sql.DB, pr *product.Repository, cat *category.Repository, imp *importer.Importer, sc *score.Repository, rq *request.Repository, cg *copygen.Service, rv *review.Service, au *auth.Service) *Server {
-	return &Server{db: db, product: pr, category: cat, importer: imp, score: sc, request: rq, copygen: cg, review: rv, auth: au}
+func NewServer(db *sql.DB, pr *product.Repository, cat *category.Repository, imp *importer.Importer, sc *score.Repository, rq *request.Repository, cg *copygen.Service, rv *review.Service, au *auth.Service, ds *dossier.Repository, mg *mediagen.Service) *Server {
+	return &Server{db: db, product: pr, category: cat, importer: imp, score: sc, request: rq, copygen: cg, review: rv, auth: au, dossier: ds, mediagen: mg}
 }
 
 // Handler returns the HTTP handler for the /api/v1 routes.
@@ -67,6 +71,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/requests/{id}/review", s.getRequestReview)
 	mux.HandleFunc("GET /api/v1/deliveries", s.operatorOnly(s.listDeliveries))
 	mux.HandleFunc("GET /api/v1/deliveries/{id}", s.operatorOnly(s.getDelivery))
+	mux.HandleFunc("POST /api/v1/products/{id}/assets", s.createDossierAsset)
+	mux.HandleFunc("GET /api/v1/products/{id}/assets", s.listDossierAssets)
+	mux.HandleFunc("DELETE /api/v1/products/{id}/assets/{asset_id}", s.deleteDossierAsset)
+	mux.HandleFunc("GET /api/v1/mediagen/health", s.mediagenHealth)
+	mux.HandleFunc("POST /api/v1/products/{id}/images/generate", s.operatorOnly(s.generateProductImage))
+	mux.HandleFunc("GET /api/v1/products/{id}/images", s.listProductImages)
 	return jsonMiddleware(s.requireAuth(mux))
 }
 
@@ -139,16 +149,29 @@ func (s *Server) getProduct(w http.ResponseWriter, r *http.Request) {
 		WriteInternal(w, err)
 		return
 	}
-	detail, _, _ := s.product.LatestDetail(r.Context(), id)
-	snap, _, _ := s.product.LatestSnapshot(r.Context(), id)
-	scoreSnap, _, _ := s.score.LatestForProduct(r.Context(), id)
-	assignment, _, _ := s.category.GetAssignment(r.Context(), id)
+	detail, detailOK, _ := s.product.LatestDetail(r.Context(), id)
+	snap, snapOK, _ := s.product.LatestSnapshot(r.Context(), id)
+	scoreSnap, scoreOK, _ := s.score.LatestForProduct(r.Context(), id)
+	assignment, assignmentOK, _ := s.category.GetAssignment(r.Context(), id)
+	var detailVal, snapVal, scoreVal, assignmentVal any
+	if detailOK {
+		detailVal = detail
+	}
+	if snapOK {
+		snapVal = snap
+	}
+	if scoreOK {
+		scoreVal = scoreSnap
+	}
+	if assignmentOK {
+		assignmentVal = assignment
+	}
 	resp := map[string]any{
 		"product":         p,
-		"detail":          detail,
-		"latest_snapshot": snap,
-		"score":           scoreSnap,
-		"assignment":      assignment,
+		"detail":          detailVal,
+		"latest_snapshot": snapVal,
+		"score":           scoreVal,
+		"assignment":      assignmentVal,
 	}
 	WriteJSON(w, http.StatusOK, resp)
 }
@@ -314,12 +337,9 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 		WriteInternal(w, err)
 		return
 	}
-	// A client's request always belongs to itself; the body's client_id is
-	// only honored for operators.
+	// 单端模式：不再强制 client_id=自身，body 传什么用什么（可空）。
+	// 恢复 RBAC 时还原为：登录用户为 client 角色时 clientID = user.ID。
 	clientID := strings.TrimSpace(body.ClientID)
-	if user, ok := UserFromContext(r.Context()); ok && user.Role == auth.RoleClient {
-		clientID = user.ID
-	}
 	req, err := s.request.Create(r.Context(), request.RequestInput{
 		ProductID: body.ProductID,
 		ClientID:  clientID,
@@ -347,10 +367,8 @@ func (s *Server) listRequests(w http.ResponseWriter, r *http.Request) {
 		Page:      page,
 		PageSize:  pageSize,
 	}
-	// Clients only ever see their own requests.
-	if user, ok := UserFromContext(r.Context()); ok && user.Role == auth.RoleClient {
-		filter.ClientID = user.ID
-	}
+	// 单端模式：不再按 client_id 过滤，所有登录用户见全量。
+	// 恢复 RBAC 时还原为：client 角色用户设置 filter.ClientID = user.ID。
 	items, total, err := s.request.List(r.Context(), filter)
 	if err != nil {
 		WriteInternal(w, err)

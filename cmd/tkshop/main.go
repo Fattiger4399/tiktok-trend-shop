@@ -14,9 +14,11 @@ import (
 	"tiktok-trend-shop/internal/category"
 	"tiktok-trend-shop/internal/config"
 	"tiktok-trend-shop/internal/copygen"
+	"tiktok-trend-shop/internal/dossier"
 	"tiktok-trend-shop/internal/httpapi"
 	"tiktok-trend-shop/internal/importer"
 	"tiktok-trend-shop/internal/ingest"
+	"tiktok-trend-shop/internal/mediagen"
 	"tiktok-trend-shop/internal/product"
 	"tiktok-trend-shop/internal/request"
 	"tiktok-trend-shop/internal/review"
@@ -93,11 +95,20 @@ func run(args []string) error {
 			cgRepo := copygen.NewRepository(db)
 			cg := copygen.NewService(rq, repo, cgRepo, copygen.NewProviderFromEnv())
 			rv := review.NewService(rq, repo, cgRepo, review.NewRepository(db))
-			v1 := apiv1.NewServer(db, repo, catRepo, imp, sc, rq, cg, rv, authSvc)
+			ds := dossier.NewRepository(db)
+			mg := mediagen.NewService(repo, mediagen.NewAssetStore(db, cfg.StorageRoot), mediagen.NewRepository(db), mediagen.NewProviderFromEnv())
+			v1 := apiv1.NewServer(db, repo, catRepo, imp, sc, rq, cg, rv, authSvc, ds, mg)
 			mux := http.NewServeMux()
 			mux.Handle("/api/v1/", v1.Handler())
 			mux.Handle("/healthz", httpapi.New(repo))
 			mux.Handle("/products", httpapi.New(repo))
+			if cfg.StorageRoot != "" {
+				assetsServer, err := newAssetsServer(cfg.StorageRoot)
+				if err != nil {
+					return err
+				}
+				mux.Handle("/assets/", assetsServer)
+			}
 			if *staticDir != "" {
 				staticServer, err := newStaticServer(*staticDir)
 				if err != nil {

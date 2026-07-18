@@ -27,6 +27,7 @@ import {
 } from 'antd'
 import { useProduct, useProductMetrics, useCategories, useMaterialRequests } from '../hooks/queries'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { DossierAssetsCard } from '../components/DossierAssetsCard'
 import { RequestStatusTag } from '../components/RequestStatusTag'
 import { assignProductCategory } from '../api/client'
 import { useI18n } from '../i18n/I18nProvider'
@@ -270,6 +271,8 @@ export default function ProductDetailPage() {
           </Space>
         )}
       </Card>
+
+      <DossierAssetsCard productID={detail.product.id} />
 
       <Card title={t('product.requestsTitle')} style={{ marginTop: 16 }}>
         {productRequests.isLoading ? (

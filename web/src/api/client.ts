@@ -3,6 +3,8 @@ import type {
   CategoryAssignment,
   CopyVariant,
   Delivery,
+  DossierAsset,
+  DossierAssetKind,
   ImportJob,
   ImportRowOutcome,
   ListResponse,
@@ -360,4 +362,44 @@ export function listDeliveries(params: ListDeliveriesParams = {}): Promise<ListR
 
 export function getDelivery(id: string): Promise<Delivery> {
   return request<Delivery>(`/deliveries/${encodeURIComponent(id)}`)
+}
+
+export interface ListDossierAssetsResponse {
+  product_id: string
+  items: DossierAsset[]
+}
+
+export function listDossierAssets(
+  productID: string,
+  kind?: DossierAssetKind,
+): Promise<ListDossierAssetsResponse> {
+  const query = kind ? `?kind=${encodeURIComponent(kind)}` : ''
+  return request<ListDossierAssetsResponse>(
+    `/products/${encodeURIComponent(productID)}/assets${query}`,
+  )
+}
+
+export interface CreateDossierAssetParams {
+  kind: DossierAssetKind
+  url?: string
+  content?: string
+  source?: string
+  note?: string
+}
+
+export function addDossierAsset(
+  productID: string,
+  params: CreateDossierAssetParams,
+): Promise<DossierAsset> {
+  return request<DossierAsset>(`/products/${encodeURIComponent(productID)}/assets`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+export function deleteDossierAsset(productID: string, assetID: string): Promise<void> {
+  return request<void>(
+    `/products/${encodeURIComponent(productID)}/assets/${encodeURIComponent(assetID)}`,
+    { method: 'DELETE' },
+  )
 }

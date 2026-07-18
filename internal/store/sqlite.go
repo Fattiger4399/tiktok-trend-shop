@@ -130,6 +130,20 @@ var Migrations = []Migration{
 			return tableExists(db, "users")
 		},
 	},
+	{
+		Name: "go_dossier_assets_011",
+		SQL:  dossierAssets011SQL,
+		Check: func(db *sql.DB) (bool, error) {
+			return tableExists(db, "dossier_assets")
+		},
+	},
+	{
+		Name: "go_mediagen_assets_012",
+		SQL:  mediagenAssets012SQL,
+		Check: func(db *sql.DB) (bool, error) {
+			return tableExists(db, "image_gen_tasks")
+		},
+	},
 }
 
 func Migrate(db *sql.DB) error {
@@ -525,4 +539,66 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user
 	ON auth_tokens(user_id);
+`
+
+const dossierAssets011SQL = `
+CREATE TABLE IF NOT EXISTS dossier_assets (
+	id TEXT PRIMARY KEY,
+	product_id TEXT NOT NULL,
+	kind TEXT NOT NULL,
+	url TEXT NOT NULL DEFAULT '',
+	content TEXT NOT NULL DEFAULT '',
+	source TEXT NOT NULL DEFAULT '',
+	note TEXT NOT NULL DEFAULT '',
+	created_by TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL,
+	FOREIGN KEY(product_id) REFERENCES products(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dossier_assets_product
+	ON dossier_assets(product_id);
+`
+
+const mediagenAssets012SQL = `
+CREATE TABLE IF NOT EXISTS assets (
+	id TEXT PRIMARY KEY,
+	kind TEXT NOT NULL,
+	backend TEXT NOT NULL DEFAULT 'local',
+	uri TEXT NOT NULL,
+	content_type TEXT NOT NULL DEFAULT 'image/png',
+	byte_size INTEGER NOT NULL DEFAULT 0,
+	checksum TEXT NOT NULL DEFAULT '',
+	product_id TEXT,
+	request_id TEXT,
+	metadata_json TEXT NOT NULL DEFAULT '{}',
+	created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_assets_kind
+	ON assets(kind);
+CREATE INDEX IF NOT EXISTS idx_assets_product
+	ON assets(product_id);
+
+CREATE TABLE IF NOT EXISTS image_gen_tasks (
+	id TEXT PRIMARY KEY,
+	product_id TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'queued',
+	usage TEXT NOT NULL DEFAULT '',
+	style TEXT NOT NULL DEFAULT '',
+	quality TEXT NOT NULL DEFAULT '',
+	prompt TEXT NOT NULL DEFAULT '',
+	seed INTEGER NOT NULL DEFAULT 0,
+	width INTEGER NOT NULL DEFAULT 0,
+	height INTEGER NOT NULL DEFAULT 0,
+	comfy_prompt_id TEXT,
+	asset_id TEXT,
+	last_error TEXT,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL,
+	completed_at TEXT,
+	FOREIGN KEY(product_id) REFERENCES products(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_image_gen_tasks_product
+	ON image_gen_tasks(product_id);
 `

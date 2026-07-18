@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  addDossierAsset,
   approveRequest,
   assignProductCategory,
   createMaterialRequest,
+  deleteDossierAsset,
   deliverRequest,
   generateRequestCopy,
   getImport,
@@ -12,6 +14,7 @@ import {
   getRequestReview,
   listCategories,
   listDeliveries,
+  listDossierAssets,
   listImports,
   listMappings,
   listMarketplaces,
@@ -19,11 +22,13 @@ import {
   listRequestVariants,
   listTrends,
   rejectRequest,
+  type CreateDossierAssetParams,
   type CreateMaterialRequestParams,
   type ListDeliveriesParams,
   type ListMaterialRequestsParams,
   type TrendsParams,
 } from '../api/client'
+import type { DossierAssetKind } from '../api/types'
 
 export function useTrends(params: TrendsParams) {
   return useQuery({
@@ -186,5 +191,33 @@ export function useDeliverRequest(id: string) {
   return useMutation({
     mutationFn: (params: { variant_id: string; actor: string }) => deliverRequest(id, params),
     onSuccess: invalidate,
+  })
+}
+
+export function useDossierAssets(productID: string | undefined, kind?: DossierAssetKind) {
+  return useQuery({
+    queryKey: ['dossier-assets', productID, kind ?? ''],
+    queryFn: () => listDossierAssets(productID as string, kind),
+    enabled: Boolean(productID),
+  })
+}
+
+export function useAddDossierAsset(productID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (params: CreateDossierAssetParams) => addDossierAsset(productID, params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dossier-assets', productID] })
+    },
+  })
+}
+
+export function useDeleteDossierAsset(productID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (assetID: string) => deleteDossierAsset(productID, assetID),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dossier-assets', productID] })
+    },
   })
 }

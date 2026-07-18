@@ -239,3 +239,17 @@ export interface PrefillSuggestion {
   focus: string
   notes: string
 }
+
+export type DossierAssetKind = 'image' | 'text' | 'link'
+
+export interface DossierAsset {
+  id: string
+  product_id: string
+  kind: DossierAssetKind
+  url: string
+  content: string
+  source: string
+  note: string
+  created_by: string
+  created_at: string
+}

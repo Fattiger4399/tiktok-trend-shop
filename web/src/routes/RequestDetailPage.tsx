@@ -86,7 +86,6 @@ export default function RequestDetailPage() {
   const dateLocale = locale === 'zh' ? 'zh-CN' : 'en-US'
   // Review actions are signed with the logged-in username.
   const actor = user?.username ?? 'operator'
-  const isClient = user?.role === 'client'
 
   if (review.isLoading) return <LoadingState label={t('common.loading')} rows={6} />
   if (review.error) return <ErrorState error={review.error as Error} onRetry={() => review.refetch()} />
@@ -205,7 +204,6 @@ export default function RequestDetailPage() {
 
       <ActionBar
         req={req}
-        isClient={isClient}
         generating={generate.isPending}
         rejecting={reject.isPending}
         delivering={deliver.isPending}
@@ -313,7 +311,6 @@ export default function RequestDetailPage() {
 
 interface ActionBarProps {
   req: MaterialRequest
-  isClient: boolean
   generating: boolean
   rejecting: boolean
   delivering: boolean
@@ -326,7 +323,6 @@ interface ActionBarProps {
 
 function ActionBar({
   req,
-  isClient,
   generating,
   rejecting,
   delivering,
@@ -336,9 +332,9 @@ function ActionBar({
   onDeliver,
   t,
 }: ActionBarProps) {
+  // 单端模式：按钮只按 status 显示，不再按角色隐藏。
+  // 恢复 RBAC 时按 user?.role === 'client' 隐藏 generate/deliver。
   if (req.status === 'submitted' || req.status === 'rejected') {
-    // Copy generation is an operator action; clients only watch the status.
-    if (isClient) return null
     return (
       <Card>
         <Button type="primary" onClick={onGenerate} loading={generating}>
@@ -367,8 +363,6 @@ function ActionBar({
     )
   }
   if (req.status === 'approved') {
-    // Deliveries are finalized by operators only.
-    if (isClient) return null
     return (
       <Card>
         <Button type="primary" onClick={onDeliver} loading={delivering} disabled={deliverDisabled}>

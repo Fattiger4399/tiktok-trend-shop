@@ -225,23 +225,23 @@ func (r *Repository) AddDetailSnapshot(ctx context.Context, input DetailInput) (
 
 // DetailSnapshot is the latest normalized detail projection.
 type DetailSnapshot struct {
-	ID                string
-	ProductID         string
-	ProductURL        *string
-	Platform          *string
-	ShopName          *string
-	Brand             *string
-	Price             *float64
-	Currency          *string
-	ImageURL          *string
-	SellingPoints     []string
-	Specs             map[string]any
-	ReviewSummary     *string
-	ReviewHighlights  []string
-	Completeness      string
-	MissingFields     []string
-	Metadata          map[string]any
-	CapturedAt        string
+	ID               string         `json:"id"`
+	ProductID        string         `json:"product_id"`
+	ProductURL       *string        `json:"product_url"`
+	Platform         *string        `json:"platform"`
+	ShopName         *string        `json:"shop_name"`
+	Brand            *string        `json:"brand"`
+	Price            *float64       `json:"price"`
+	Currency         *string        `json:"currency"`
+	ImageURL         *string        `json:"image_url"`
+	SellingPoints    []string       `json:"selling_points"`
+	Specs            map[string]any `json:"specs"`
+	ReviewSummary    *string        `json:"review_summary"`
+	ReviewHighlights []string       `json:"review_highlights"`
+	Completeness     string         `json:"completeness"`
+	MissingFields    []string       `json:"missing_fields"`
+	Metadata         map[string]any `json:"metadata"`
+	CapturedAt       string         `json:"captured_at"`
 }
 
 // LatestDetail returns the most recent detail snapshot for a product.

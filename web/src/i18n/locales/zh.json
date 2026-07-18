@@ -150,7 +150,32 @@
     },
     "selectAndRequest": "选品并提交需求",
     "requestsTitle": "相关需求",
-    "requestsEmpty": "该商品还没有需求记录"
+    "requestsEmpty": "该商品还没有需求记录",
+    "dossier": {
+      "title": "全网素材",
+      "empty": "还没有素材，添加第一条全网收集的宣传物料。",
+      "kind": "类型",
+      "kinds": {
+        "image": "图片",
+        "text": "文字",
+        "link": "链接"
+      },
+      "url": "素材链接",
+      "urlPlaceholder": "https://…",
+      "content": "文字内容",
+      "contentPlaceholder": "粘贴宣传文案或评价摘录",
+      "source": "来源站点",
+      "sourcePlaceholder": "如 amazon.com / 1688 / 手动",
+      "note": "备注",
+      "notePlaceholder": "补充说明（可选）",
+      "add": "添加素材",
+      "added": "素材已添加",
+      "deleted": "素材已删除",
+      "delete": "删除",
+      "needUrl": "图片/链接素材必须填写链接",
+      "needContent": "文字素材必须填写内容",
+      "by": "添加人"
+    }
   },
   "categories": {
     "title": "目录与分类",

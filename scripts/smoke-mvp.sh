@@ -59,9 +59,10 @@ CTOKEN=$(curl -fsS -X POST "$BASE/auth/login" "${JSON[@]}" \
 CL=(-H "Authorization: Bearer $CTOKEN")
 ok "甲方登录"
 
+# 单端模式：client 与 operator 等价，可访问运营路由。
 CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/imports" "${CL[@]}")
-[ "$CODE" = "403" ] || fail "client 访问 imports 应为 403，实得 $CODE"
-ok "甲方越权访问 imports 被拒（403）"
+[ "$CODE" = "200" ] || fail "client 访问 imports 应为 200，实得 $CODE"
+ok "甲方可访问 imports（单端模式）"
 
 # --- 2. 导入亚马逊榜单 CSV ---
 IMPORT_RESP=$(curl -fsS -X POST "$BASE/imports/csv" "${OP[@]}" \
@@ -85,6 +86,19 @@ DETAIL=$(curl -fsS "$BASE/products/$PID" "${CL[@]}") || fail "product detail"
 echo "$DETAIL" | jqe "d['product']['id'] == '$PID' and d['detail'] is not None" >/dev/null || fail "详情缺少档案"
 ok "商品详情与档案"
 
+# --- 4.5 商品档案素材区 ---
+ASSET_RESP=$(curl -fsS -X POST "$BASE/products/$PID/assets" "${CL[@]}" "${JSON[@]}" \
+  -d '{"kind":"image","url":"https://example.com/evidence.jpg","source":"amazon.com","note":"冒烟素材"}') || fail "add dossier asset"
+echo "$ASSET_RESP" | jqe "d['id'].startswith('da_') and d['kind'] == 'image' and d['created_by'] == 'client1'" >/dev/null \
+  || fail "素材创建响应异常：$ASSET_RESP"
+ok "商品档案添加图片素材（201）"
+
+ASSETS=$(curl -fsS "$BASE/products/$PID/assets?kind=image" "${CL[@]}") || fail "list dossier assets"
+export SMOKE_ASSET_URL="https://example.com/evidence.jpg"
+[ "$(echo "$ASSETS" | jqe "any(x['url'] == os.environ['SMOKE_ASSET_URL'] and x['kind'] == 'image' for x in d['items'])")" = "True" ] \
+  || fail "素材列表缺少刚添加的图片：$ASSETS"
+ok "商品素材列表可查（kind=image）"
+
 # --- 5. 选品需求（AI 预填 + 提交） ---
 SUGGEST=$(curl -fsS -X POST "$BASE/products/$PID/prefill" "${CL[@]}") || fail "prefill"
 U_USAGE=$(echo "$SUGGEST" | jqe "d['suggestion']['usage']")
@@ -100,15 +114,11 @@ RID=$(echo "$REQ_RESP" | jqe "d['id']")
 export SMOKE_RID="$RID"
 ok "提交选品需求"
 
-# --- 6. LLM 生成（operator；client 应被拒） ---
-CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/requests/$RID/generate" "${CL[@]}")
-[ "$CODE" = "403" ] || fail "client 触发生成应为 403，实得 $CODE"
-ok "甲方触发生成被拒（403）"
-
-GEN_RESP=$(curl -fsS -X POST "$BASE/requests/$RID/generate" "${OP[@]}") || fail "generate"
+# --- 6. LLM 生成（单端模式：client 也可触发） ---
+GEN_RESP=$(curl -fsS -X POST "$BASE/requests/$RID/generate" "${CL[@]}") || fail "generate"
 [ "$(echo "$GEN_RESP" | jqe "len(d['items'])")" = "3" ] || fail "应生成 3 版文案"
 VID=$(echo "$GEN_RESP" | jqe "d['items'][0]['id']")
-ok "生成 3 版文案（mock provider）"
+ok "甲方生成 3 版文案（单端模式，mock provider）"
 
 # --- 7. 审批（client）与交付（operator） ---
 APP_RESP=$(curl -fsS -X POST "$BASE/requests/$RID/approve" "${CL[@]}" "${JSON[@]}" \
