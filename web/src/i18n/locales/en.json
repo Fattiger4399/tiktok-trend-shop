@@ -4,10 +4,28 @@
     "environment": "Local workbench",
     "language": "Language"
   },
+  "auth": {
+    "logout": "Log out",
+    "role": {
+      "operator": "Operator",
+      "client": "Client"
+    }
+  },
+  "login": {
+    "title": "Sign in to the Trend Workbench",
+    "username": "Username",
+    "password": "Password",
+    "usernameRequired": "Please enter your username",
+    "passwordRequired": "Please enter your password",
+    "submit": "Sign in",
+    "failed": "Sign-in failed. Check your username and password."
+  },
   "nav": {
     "trending": "Trending",
     "categories": "Categories",
     "imports": "Imports",
+    "requests": "Requests",
+    "deliveries": "Deliveries",
     "back": "Back"
   },
   "route": {
@@ -15,7 +33,11 @@
     "productDetail": "Product Detail",
     "categories": "Catalog & Classification",
     "imports": "CSV Imports",
-    "importDetail": "Import Detail"
+    "importDetail": "Import Detail",
+    "requests": "Material Requests",
+    "requestNew": "New Request",
+    "requestDetail": "Request Detail",
+    "deliveries": "Deliveries"
   },
   "common": {
     "loading": "Loading…",
@@ -125,7 +147,10 @@
       "empty": "No observations recorded yet",
       "insufficient": "At least two observations are required to draw a trend. Showing the latest known value.",
       "insufficientTag": "Insufficient history"
-    }
+    },
+    "selectAndRequest": "Select & submit request",
+    "requestsTitle": "Related requests",
+    "requestsEmpty": "No material requests for this product yet"
   },
   "categories": {
     "title": "Catalog & Classification",
@@ -198,6 +223,125 @@
     "high": "high confidence",
     "medium": "medium confidence",
     "low": "low confidence"
+  },
+  "requests": {
+    "title": "Material Requests",
+    "filters": {
+      "status": "Status",
+      "allStatuses": "All statuses"
+    },
+    "table": {
+      "id": "Request ID",
+      "product": "Product",
+      "usage": "Usage",
+      "status": "Status",
+      "created": "Created"
+    },
+    "empty": {
+      "title": "No requests yet",
+      "description": "Submit the first material request from a product detail page."
+    },
+    "status": {
+      "submitted": "Submitted",
+      "generating": "Generating",
+      "generated": "Generated",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "delivered": "Delivered"
+    },
+    "usage": {
+      "listing": "Listing page",
+      "social": "Social media",
+      "ad": "Ad"
+    },
+    "style": {
+      "professional": "Professional",
+      "playful": "Playful",
+      "premium": "Premium",
+      "friendly": "Friendly"
+    },
+    "new": {
+      "title": "New Material Request",
+      "product": "Product",
+      "usage": "Usage",
+      "style": "Style",
+      "focus": "Selling-point focus",
+      "notes": "Notes",
+      "usagePlaceholder": "Choose a usage",
+      "stylePlaceholder": "Choose a style",
+      "focusPlaceholder": "e.g. portability, battery life, value",
+      "notesPlaceholder": "Anything else the AI should keep in mind",
+      "prefill": "AI prefill",
+      "prefilling": "Prefilling…",
+      "prefillSuccess": "Prefilled from product info. Feel free to edit.",
+      "submit": "Submit request",
+      "submitting": "Submitting…",
+      "submitSuccess": "Request created",
+      "missingProduct": "Missing product_id. Please start from a product detail page.",
+      "usageRequired": "Please choose a usage",
+      "styleRequired": "Please choose a style"
+    },
+    "detail": {
+      "backToList": "Back to requests",
+      "productCard": "Product summary",
+      "briefCard": "Brief",
+      "variantsCard": "Copy variants",
+      "variantsEmpty": "No copy generated yet",
+      "historyCard": "Review history",
+      "historyEmpty": "No review events yet",
+      "deliveryCard": "Delivery snapshot",
+      "usage": "Usage",
+      "style": "Style",
+      "focus": "Focus",
+      "notes": "Notes",
+      "status": "Status",
+      "created": "Created",
+      "updated": "Updated",
+      "generate": "Generate copy",
+      "generating": "Generating copy, please wait…",
+      "generateSuccess": "Copy generated",
+      "variant": "Variant {{no}}",
+      "hook": "Hook",
+      "body": "Body",
+      "caption": "Caption",
+      "hashtags": "Hashtags",
+      "provider": "Provider",
+      "model": "Model",
+      "promptVersion": "Prompt version",
+      "approve": "Approve this variant",
+      "approveNotePlaceholder": "Review note (optional)",
+      "approveSuccess": "Variant approved",
+      "reject": "Reject",
+      "rejectReason": "Rejection reason",
+      "rejectReasonRequired": "Please provide a rejection reason",
+      "rejectConfirm": "Confirm rejection",
+      "rejectSuccess": "Request rejected",
+      "lastRejectReason": "Latest rejection reason",
+      "deliver": "Finalize & deliver",
+      "deliverSuccess": "Delivered",
+      "deliverMissingVariant": "No approved variant found; cannot deliver.",
+      "actionApproved": "Approved",
+      "actionRejected": "Rejected",
+      "actor": "Actor",
+      "note": "Note",
+      "viewProduct": "View product"
+    }
+  },
+  "deliveries": {
+    "title": "Deliveries",
+    "table": {
+      "id": "Delivery ID",
+      "product": "Product",
+      "variant": "Variant",
+      "actor": "Actor",
+      "created": "Delivered at"
+    },
+    "variantNo": "Variant {{no}}",
+    "empty": {
+      "title": "No deliveries yet",
+      "description": "Approve a request and finalize it to create a delivery."
+    },
+    "package": "Delivery package"
   },
   "common_columns": {
     "noImage": "No image",

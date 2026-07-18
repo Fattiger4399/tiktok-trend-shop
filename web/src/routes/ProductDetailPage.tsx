@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   CartesianGrid,
   Line,
@@ -16,6 +16,7 @@ import {
   Col,
   Descriptions,
   Empty,
+  List,
   Row,
   Select,
   Space,
@@ -24,17 +25,20 @@ import {
   Typography,
   message,
 } from 'antd'
-import { useProduct, useProductMetrics, useCategories } from '../hooks/queries'
+import { useProduct, useProductMetrics, useCategories, useMaterialRequests } from '../hooks/queries'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { RequestStatusTag } from '../components/RequestStatusTag'
 import { assignProductCategory } from '../api/client'
 import { useI18n } from '../i18n/I18nProvider'
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { t, locale } = useI18n()
+  const navigate = useNavigate()
   const product = useProduct(id)
   const metrics = useProductMetrics(id, 'all')
   const categories = useCategories()
+  const productRequests = useMaterialRequests({ product_id: id, page: 1, page_size: 10 })
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [messageApi, contextHolder] = message.useMessage()
@@ -75,9 +79,14 @@ export default function ProductDetailPage() {
       <p>
         <Link to="/trends">← {t('product.backToTrending')}</Link>
       </p>
-      <Typography.Title id="product-detail-title" level={3} style={{ margin: '12px 0' }}>
-        {detail.product.title}
-      </Typography.Title>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <Typography.Title id="product-detail-title" level={3} style={{ margin: '12px 0' }}>
+          {detail.product.title}
+        </Typography.Title>
+        <Button type="primary" onClick={() => navigate(`/requests/new?product_id=${id}`)}>
+          {t('product.selectAndRequest')}
+        </Button>
+      </div>
       <Space size={8} wrap style={{ marginBottom: 16, color: '#6b7280' }}>
         <span>
           {detail.product.marketplace ? `${detail.product.marketplace} · ` : ''}
@@ -259,6 +268,32 @@ export default function ProductDetailPage() {
               </ResponsiveContainer>
             ) : null}
           </Space>
+        )}
+      </Card>
+
+      <Card title={t('product.requestsTitle')} style={{ marginTop: 16 }}>
+        {productRequests.isLoading ? (
+          <LoadingState label={t('common.loading')} rows={2} />
+        ) : productRequests.error ? (
+          <ErrorState error={productRequests.error as Error} />
+        ) : (productRequests.data?.items ?? []).length === 0 ? (
+          <Typography.Text type="secondary">{t('product.requestsEmpty')}</Typography.Text>
+        ) : (
+          <List
+            size="small"
+            dataSource={productRequests.data?.items ?? []}
+            renderItem={(item) => (
+              <List.Item>
+                <Space size={8} wrap>
+                  <Link to={`/requests/${item.id}`}>{item.id}</Link>
+                  <RequestStatusTag status={item.status} />
+                  <span style={{ color: '#6b7280' }}>
+                    {new Date(item.created_at).toLocaleString(dateLocale)}
+                  </span>
+                </Space>
+              </List.Item>
+            )}
+          />
         )}
       </Card>
     </section>

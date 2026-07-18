@@ -102,6 +102,34 @@ var Migrations = []Migration{
 			return tableExists(db, "import_jobs")
 		},
 	},
+	{
+		Name: "go_material_requests_007",
+		SQL:  materialRequests007SQL,
+		Check: func(db *sql.DB) (bool, error) {
+			return tableExists(db, "material_requests")
+		},
+	},
+	{
+		Name: "go_copy_variants_008",
+		SQL:  copyVariants008SQL,
+		Check: func(db *sql.DB) (bool, error) {
+			return tableExists(db, "copy_variants")
+		},
+	},
+	{
+		Name: "go_review_deliveries_009",
+		SQL:  reviewDeliveries009SQL,
+		Check: func(db *sql.DB) (bool, error) {
+			return tableExists(db, "review_events")
+		},
+	},
+	{
+		Name: "go_auth_users_010",
+		SQL:  authUsers010SQL,
+		Check: func(db *sql.DB) (bool, error) {
+			return tableExists(db, "users")
+		},
+	},
 }
 
 func Migrate(db *sql.DB) error {
@@ -403,4 +431,98 @@ CREATE TABLE IF NOT EXISTS import_job_rows (
 
 CREATE INDEX IF NOT EXISTS idx_import_job_rows_job
 	ON import_job_rows(import_job_id, row_number);
+`
+
+const materialRequests007SQL = `
+CREATE TABLE IF NOT EXISTS material_requests (
+	id TEXT PRIMARY KEY,
+	product_id TEXT NOT NULL,
+	client_id TEXT NOT NULL DEFAULT '',
+	usage TEXT NOT NULL DEFAULT '',
+	style TEXT NOT NULL DEFAULT '',
+	focus TEXT NOT NULL DEFAULT '',
+	notes TEXT NOT NULL DEFAULT '',
+	status TEXT NOT NULL DEFAULT 'submitted',
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL,
+	FOREIGN KEY(product_id) REFERENCES products(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_material_requests_product
+	ON material_requests(product_id);
+CREATE INDEX IF NOT EXISTS idx_material_requests_status
+	ON material_requests(status);
+`
+
+const copyVariants008SQL = `
+CREATE TABLE IF NOT EXISTS copy_variants (
+	id TEXT PRIMARY KEY,
+	request_id TEXT NOT NULL,
+	variant_no INTEGER NOT NULL,
+	hook TEXT NOT NULL DEFAULT '',
+	body TEXT NOT NULL DEFAULT '',
+	caption TEXT NOT NULL DEFAULT '',
+	hashtags TEXT NOT NULL DEFAULT '[]',
+	provider TEXT NOT NULL,
+	model TEXT NOT NULL DEFAULT '',
+	prompt_version TEXT NOT NULL DEFAULT '1.0',
+	created_at TEXT NOT NULL,
+	FOREIGN KEY(request_id) REFERENCES material_requests(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_copy_variants_request
+	ON copy_variants(request_id);
+`
+
+const reviewDeliveries009SQL = `
+CREATE TABLE IF NOT EXISTS review_events (
+	id TEXT PRIMARY KEY,
+	request_id TEXT NOT NULL,
+	action TEXT NOT NULL,
+	actor TEXT NOT NULL DEFAULT '',
+	note TEXT NOT NULL DEFAULT '',
+	variant_id TEXT,
+	created_at TEXT NOT NULL,
+	FOREIGN KEY(request_id) REFERENCES material_requests(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_events_request
+	ON review_events(request_id);
+
+CREATE TABLE IF NOT EXISTS deliveries (
+	id TEXT PRIMARY KEY,
+	request_id TEXT NOT NULL UNIQUE,
+	variant_id TEXT NOT NULL,
+	actor TEXT NOT NULL DEFAULT '',
+	package_json TEXT NOT NULL,
+	created_at TEXT NOT NULL,
+	FOREIGN KEY(request_id) REFERENCES material_requests(id),
+	FOREIGN KEY(variant_id) REFERENCES copy_variants(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_deliveries_request
+	ON deliveries(request_id);
+`
+
+const authUsers010SQL = `
+CREATE TABLE IF NOT EXISTS users (
+	id TEXT PRIMARY KEY,
+	username TEXT NOT NULL UNIQUE,
+	password_hash TEXT NOT NULL,
+	role TEXT NOT NULL CHECK(role IN ('operator','client')),
+	display_name TEXT NOT NULL DEFAULT '',
+	active INTEGER NOT NULL DEFAULT 1,
+	created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_tokens (
+	token TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL,
+	created_at TEXT NOT NULL,
+	expires_at TEXT NOT NULL,
+	FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user
+	ON auth_tokens(user_id);
 `

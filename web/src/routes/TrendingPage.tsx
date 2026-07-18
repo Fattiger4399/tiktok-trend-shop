@@ -2,28 +2,32 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Form, Input, Pagination, Select, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useTrends } from '../hooks/queries'
+import { useCategories, useMarketplaces, useTrends } from '../hooks/queries'
 import { useTrendsURL } from '../hooks/useTrendsURL'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { ProductRow } from '../components/ProductRow'
 import { useI18n } from '../i18n/I18nProvider'
 import type { ProductResult } from '../api/types'
 
-const MARKETPLACES = ['US', 'UK', 'DE', 'JP'] as const
-const CATEGORIES: Array<{ id: string; label: string }> = [
-  { id: 'cat-beauty', label: 'beauty' },
-  { id: 'cat-home', label: 'home' },
-  { id: 'cat-electronics', label: 'electronics' },
-  { id: 'cat-fashion', label: 'fashion' },
-  { id: 'cat-toys', label: 'toys' },
-  { id: 'cat-sports', label: 'sports' },
-]
-
 export default function TrendingPage() {
   const { t, locale } = useI18n()
   const { params, setParam, clear } = useTrendsURL()
   const { data, error, isLoading, isFetching, refetch } = useTrends(params)
+  const { data: marketplacesData } = useMarketplaces()
+  const { data: categoriesData } = useCategories()
   const [searchInput, setSearchInput] = useState(params.q ?? '')
+
+  const marketplaceOptions = useMemo(
+    () => (marketplacesData?.items ?? []).map((m) => ({ value: m, label: m })),
+    [marketplacesData],
+  )
+  const categoryOptions = useMemo(
+    () =>
+      (categoriesData?.items ?? [])
+        .filter((c) => c.active)
+        .map((c) => ({ value: c.id, label: c.name })),
+    [categoriesData],
+  )
 
   const products = data?.items ?? []
   const effective = (data?.effective ?? {}) as Record<string, unknown>
@@ -120,7 +124,7 @@ export default function TrendingPage() {
               onChange={(value) => setParam('marketplace', value)}
               options={[
                 { value: '', label: t('trends.marketplaces.all') },
-                ...MARKETPLACES.map((m) => ({ value: m, label: m })),
+                ...marketplaceOptions,
               ]}
             />
           </Form.Item>
@@ -131,7 +135,7 @@ export default function TrendingPage() {
               onChange={(value) => setParam('category', value)}
               options={[
                 { value: '', label: t('trends.categories.all') },
-                ...CATEGORIES.map((c) => ({ value: c.id, label: c.label })),
+                ...categoryOptions,
               ]}
             />
           </Form.Item>

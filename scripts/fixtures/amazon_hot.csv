@@ -1,0 +1,11 @@
+title,region,marketplace,asin,category,product_url,shop_name,brand,price,currency,image_url,selling_points,specs,review_summary,views,sales
+婴儿恒温睡袋,US,US,B0SMOKE001,Baby,https://amazon.com/dp/B0SMOKE001,DreamBaby,DreamBaby,39.99,USD,https://img.example/sleep-sack.jpg,恒温纤维|双向拉链|可机洗,material:cotton|size:0-24M,宝宝整夜安睡不踢被,45200,1830
+防胀气奶瓶套装,US,US,B0SMOKE002,Baby,https://amazon.com/dp/B0SMOKE002,MilkJoy,MilkJoy,24.99,USD,https://img.example/bottle.jpg,防胀气阀门|宽口径|不含BPA,material:PPSU|capacity:240ml,胀气明显减少清洗方便,38100,1450
+竹纤维凉感床笠,US,US,B0SMOKE003,Bedding,https://amazon.com/dp/B0SMOKE003,CoolNest,CoolNest,49.99,USD,https://img.example/sheet.jpg,凉感透气|深袋防滑|免熨烫,material:bamboo|size:Queen,夏天睡觉不出汗了,52300,2100
+记忆棉护颈枕,US,US,B0SMOKE004,Bedding,https://amazon.com/dp/B0SMOKE004,NightEase,NightEase,35.99,USD,https://img.example/pillow.jpg,慢回弹|颈椎支撑|可拆洗枕套,material:memory-foam|height:12cm,落枕改善明显,41900,1680
+户外折叠月亮椅,US,US,B0SMOKE005,Outdoor,https://amazon.com/dp/B0SMOKE005,TrailRest,TrailRest,45.99,USD,https://img.example/chair.jpg,一秒开合|承重300磅|仅1.2kg,material:aluminum|weight:1.2kg,露营神器收纳小,61500,2460
+便携户外净水吸管,US,US,B0SMOKE006,Outdoor,https://amazon.com/dp/B0SMOKE006,PureFlow,PureFlow,19.99,USD,https://img.example/filter.jpg,0.01微米过滤|可滤1000L|免电池,filter:0.01um|capacity:1000L,徒步必备喝水放心,58700,2210
+LED 露营灯,DE,DE,B0SMOKE007,Outdoor,https://amazon.de/dp/B0SMOKE007,CampLicht,CampLicht,22.99,EUR,https://img.example/lantern.jpg,三档调光|USB充电|IPX6防水,battery:5000mAh|lumens:800,亮度续航都超预期,33200,1180
+婴儿硅胶辅食碗,DE,DE,B0SMOKE008,Baby,https://amazon.de/dp/B0SMOKE008,KleinKind,KleinKind,15.99,EUR,https://img.example/bowl.jpg,吸盘防滑|食品级硅胶|可微波,material:silicone|temp:-40-230C,吸盘很牢宝宝打不翻,28600,960
+全棉四层纱布浴巾,JP,JP,B0SMOKE009,Bedding,https://amazon.co.jp/dp/B0SMOKE009,もめん工房,MomenKobo,29.99,USD,https://img.example/towel.jpg,四层纱布|越洗越软|速干,material:cotton|size:70x140,触感柔软吸水快,25400,870
+折叠宠物外出包,JP,JP,B0SMOKE010,Pet,https://amazon.co.jp/dp/B0SMOKE010,PetGo,PetGo,42.99,USD,https://img.example/petbag.jpg,透气天窗|可登机|折叠收纳,material:oxford|load:8kg,猫咪出门不应激,22900,760

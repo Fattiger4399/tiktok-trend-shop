@@ -10,12 +10,16 @@ import (
 	"os"
 
 	"tiktok-trend-shop/internal/apiv1"
+	"tiktok-trend-shop/internal/auth"
 	"tiktok-trend-shop/internal/category"
 	"tiktok-trend-shop/internal/config"
+	"tiktok-trend-shop/internal/copygen"
 	"tiktok-trend-shop/internal/httpapi"
 	"tiktok-trend-shop/internal/importer"
 	"tiktok-trend-shop/internal/ingest"
 	"tiktok-trend-shop/internal/product"
+	"tiktok-trend-shop/internal/request"
+	"tiktok-trend-shop/internal/review"
 	"tiktok-trend-shop/internal/score"
 	"tiktok-trend-shop/internal/store"
 )
@@ -79,9 +83,17 @@ func run(args []string) error {
 			if err := catRepo.SeedCanonical(context.Background()); err != nil {
 				return err
 			}
+			authSvc := auth.NewService(auth.NewRepository(db))
+			if err := authSvc.SeedOperator(context.Background()); err != nil {
+				return err
+			}
 			imp := importer.New(db, repo)
 			sc := score.NewRepository(db, repo)
-			v1 := apiv1.NewServer(db, repo, catRepo, imp, sc)
+			rq := request.NewRepository(db)
+			cgRepo := copygen.NewRepository(db)
+			cg := copygen.NewService(rq, repo, cgRepo, copygen.NewProviderFromEnv())
+			rv := review.NewService(rq, repo, cgRepo, review.NewRepository(db))
+			v1 := apiv1.NewServer(db, repo, catRepo, imp, sc, rq, cg, rv, authSvc)
 			mux := http.NewServeMux()
 			mux.Handle("/api/v1/", v1.Handler())
 			mux.Handle("/healthz", httpapi.New(repo))

@@ -3,44 +3,71 @@ package apiv1
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 
+	"tiktok-trend-shop/internal/auth"
 	"tiktok-trend-shop/internal/category"
+	"tiktok-trend-shop/internal/copygen"
 	"tiktok-trend-shop/internal/importer"
 	"tiktok-trend-shop/internal/product"
+	"tiktok-trend-shop/internal/request"
+	"tiktok-trend-shop/internal/review"
 	"tiktok-trend-shop/internal/score"
 )
 
 // Server bundles dependencies for the /api/v1 routes.
 type Server struct {
-	db        *sql.DB
-	product   *product.Repository
-	category  *category.Repository
-	importer  *importer.Importer
-	score     *score.Repository
+	db       *sql.DB
+	product  *product.Repository
+	category *category.Repository
+	importer *importer.Importer
+	score    *score.Repository
+	request  *request.Repository
+	copygen  *copygen.Service
+	review   *review.Service
+	auth     *auth.Service
 }
 
 // NewServer constructs a Server with the supplied dependencies.
-func NewServer(db *sql.DB, pr *product.Repository, cat *category.Repository, imp *importer.Importer, sc *score.Repository) *Server {
-	return &Server{db: db, product: pr, category: cat, importer: imp, score: sc}
+func NewServer(db *sql.DB, pr *product.Repository, cat *category.Repository, imp *importer.Importer, sc *score.Repository, rq *request.Repository, cg *copygen.Service, rv *review.Service, au *auth.Service) *Server {
+	return &Server{db: db, product: pr, category: cat, importer: imp, score: sc, request: rq, copygen: cg, review: rv, auth: au}
 }
 
 // Handler returns the HTTP handler for the /api/v1 routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/v1/auth/login", s.login)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
+	mux.HandleFunc("GET /api/v1/auth/me", s.me)
+	mux.HandleFunc("POST /api/v1/users", s.operatorOnly(s.createUser))
+	mux.HandleFunc("GET /api/v1/users", s.operatorOnly(s.listUsers))
 	mux.HandleFunc("GET /api/v1/trends", s.listTrends)
 	mux.HandleFunc("GET /api/v1/products/{id}", s.getProduct)
 	mux.HandleFunc("GET /api/v1/products/{id}/metrics", s.getProductMetrics)
 	mux.HandleFunc("GET /api/v1/categories", s.listCategories)
-	mux.HandleFunc("GET /api/v1/category-mappings", s.listMappings)
-	mux.HandleFunc("GET /api/v1/products/{id}/category", s.getProductCategory)
-	mux.HandleFunc("PATCH /api/v1/products/{id}/category", s.assignProductCategory)
-	mux.HandleFunc("GET /api/v1/imports", s.listImports)
-	mux.HandleFunc("POST /api/v1/imports/csv", s.createImport)
-	mux.HandleFunc("GET /api/v1/imports/{id}", s.getImport)
+	mux.HandleFunc("GET /api/v1/marketplaces", s.listMarketplaces)
+	mux.HandleFunc("GET /api/v1/category-mappings", s.operatorOnly(s.listMappings))
+	mux.HandleFunc("GET /api/v1/products/{id}/category", s.operatorOnly(s.getProductCategory))
+	mux.HandleFunc("PATCH /api/v1/products/{id}/category", s.operatorOnly(s.assignProductCategory))
+	mux.HandleFunc("GET /api/v1/imports", s.operatorOnly(s.listImports))
+	mux.HandleFunc("POST /api/v1/imports/csv", s.operatorOnly(s.createImport))
+	mux.HandleFunc("GET /api/v1/imports/{id}", s.operatorOnly(s.getImport))
 	mux.HandleFunc("GET /api/v1/products/{id}/score", s.getProductScore)
-	return jsonMiddleware(mux)
+	mux.HandleFunc("POST /api/v1/requests", s.createRequest)
+	mux.HandleFunc("GET /api/v1/requests", s.listRequests)
+	mux.HandleFunc("GET /api/v1/requests/{id}", s.getRequest)
+	mux.HandleFunc("POST /api/v1/products/{id}/prefill", s.prefillRequestBrief)
+	mux.HandleFunc("POST /api/v1/requests/{id}/generate", s.operatorOnly(s.generateRequestCopy))
+	mux.HandleFunc("GET /api/v1/requests/{id}/variants", s.listRequestVariants)
+	mux.HandleFunc("POST /api/v1/requests/{id}/approve", s.approveRequest)
+	mux.HandleFunc("POST /api/v1/requests/{id}/reject", s.rejectRequest)
+	mux.HandleFunc("POST /api/v1/requests/{id}/deliver", s.operatorOnly(s.deliverRequest))
+	mux.HandleFunc("GET /api/v1/requests/{id}/review", s.getRequestReview)
+	mux.HandleFunc("GET /api/v1/deliveries", s.operatorOnly(s.listDeliveries))
+	mux.HandleFunc("GET /api/v1/deliveries/{id}", s.operatorOnly(s.getDelivery))
+	return jsonMiddleware(s.requireAuth(mux))
 }
 
 func (s *Server) listTrends(w http.ResponseWriter, r *http.Request) {
@@ -158,6 +185,15 @@ func (s *Server) listCategories(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, ListResponse{Items: cats, Pagination: PaginationFor(1, MaxPageSize, len(cats))})
 }
 
+func (s *Server) listMarketplaces(w http.ResponseWriter, r *http.Request) {
+	marketplaces, err := s.product.ListMarketplaces(r.Context())
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, ListResponse{Items: marketplaces, Pagination: PaginationFor(1, MaxPageSize, len(marketplaces))})
+}
+
 func (s *Server) listMappings(w http.ResponseWriter, r *http.Request) {
 	mappings, err := s.category.ListMappings(r.Context())
 	if err != nil {
@@ -252,6 +288,373 @@ func (s *Server) getProductScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, snap)
+}
+
+func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ProductID string `json:"product_id"`
+		ClientID  string `json:"client_id"`
+		Usage     string `json:"usage"`
+		Style     string `json:"style"`
+		Focus     string `json:"focus"`
+		Notes     string `json:"notes"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		WriteFieldError(w, "body", "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(body.ProductID) == "" {
+		WriteFieldError(w, "product_id", "product_id is required")
+		return
+	}
+	if _, err := s.product.GetProduct(r.Context(), body.ProductID); err == sql.ErrNoRows {
+		WriteNotFound(w, "product")
+		return
+	} else if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	// A client's request always belongs to itself; the body's client_id is
+	// only honored for operators.
+	clientID := strings.TrimSpace(body.ClientID)
+	if user, ok := UserFromContext(r.Context()); ok && user.Role == auth.RoleClient {
+		clientID = user.ID
+	}
+	req, err := s.request.Create(r.Context(), request.RequestInput{
+		ProductID: body.ProductID,
+		ClientID:  clientID,
+		Usage:     strings.TrimSpace(body.Usage),
+		Style:     strings.TrimSpace(body.Style),
+		Focus:     strings.TrimSpace(body.Focus),
+		Notes:     strings.TrimSpace(body.Notes),
+	})
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, req)
+}
+
+func (s *Server) listRequests(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	page := ParsePage(q.Get("page"))
+	pageSize := ParsePageSize(q.Get("page_size"))
+	status := strings.TrimSpace(q.Get("status"))
+	productID := strings.TrimSpace(q.Get("product_id"))
+	filter := request.ListFilter{
+		Status:    status,
+		ProductID: productID,
+		Page:      page,
+		PageSize:  pageSize,
+	}
+	// Clients only ever see their own requests.
+	if user, ok := UserFromContext(r.Context()); ok && user.Role == auth.RoleClient {
+		filter.ClientID = user.ID
+	}
+	items, total, err := s.request.List(r.Context(), filter)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, ListResponse{
+		Items:      items,
+		Pagination: PaginationFor(page, pageSize, total),
+		Effective: map[string]any{
+			"page":       page,
+			"page_size":  pageSize,
+			"status":     status,
+			"product_id": productID,
+		},
+	})
+}
+
+func (s *Server) getRequest(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	req, err := s.request.Get(r.Context(), id)
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "material_request")
+		return
+	}
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	if !clientOwnsRequest(w, r, req.ClientID) {
+		return
+	}
+	WriteJSON(w, http.StatusOK, req)
+}
+
+func (s *Server) prefillRequestBrief(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	suggestion, err := s.copygen.PrefillForProduct(r.Context(), id)
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "product")
+		return
+	}
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"product_id": id, "suggestion": suggestion})
+}
+
+func (s *Server) generateRequestCopy(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	variants, err := s.copygen.GenerateForRequest(r.Context(), id)
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "material_request")
+		return
+	}
+	var statusErr *copygen.StatusError
+	if errors.As(err, &statusErr) {
+		WriteError(w, http.StatusConflict, "invalid_status", statusErr.Error())
+		return
+	}
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"request_id": id, "items": variants})
+}
+
+func (s *Server) listRequestVariants(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	req, err := s.request.Get(r.Context(), id)
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "material_request")
+		return
+	} else if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	if !clientOwnsRequest(w, r, req.ClientID) {
+		return
+	}
+	variants, err := s.copygen.ListVariants(r.Context(), id)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"request_id": id, "items": variants})
+}
+
+func (s *Server) approveRequest(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	if !s.requestAccessible(w, r, id) {
+		return
+	}
+	var body struct {
+		VariantID string `json:"variant_id"`
+		Actor     string `json:"actor"`
+		Note      string `json:"note"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		WriteFieldError(w, "body", "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(body.VariantID) == "" {
+		WriteFieldError(w, "variant_id", "variant_id is required")
+		return
+	}
+	event, err := s.review.Approve(r.Context(), id,
+		strings.TrimSpace(body.VariantID), resolveActor(r, strings.TrimSpace(body.Actor)), strings.TrimSpace(body.Note))
+	if err != nil {
+		writeReviewError(w, err)
+		return
+	}
+	req, err := s.request.Get(r.Context(), id)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"request": req, "event": event})
+}
+
+func (s *Server) rejectRequest(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	if !s.requestAccessible(w, r, id) {
+		return
+	}
+	var body struct {
+		Reason string `json:"reason"`
+		Actor  string `json:"actor"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		WriteFieldError(w, "body", "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(body.Reason) == "" {
+		WriteFieldError(w, "reason", "reason is required")
+		return
+	}
+	event, err := s.review.Reject(r.Context(), id,
+		resolveActor(r, strings.TrimSpace(body.Actor)), strings.TrimSpace(body.Reason))
+	if err != nil {
+		writeReviewError(w, err)
+		return
+	}
+	req, err := s.request.Get(r.Context(), id)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"request": req, "event": event})
+}
+
+func (s *Server) deliverRequest(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	var body struct {
+		VariantID string `json:"variant_id"`
+		Actor     string `json:"actor"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		WriteFieldError(w, "body", "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(body.VariantID) == "" {
+		WriteFieldError(w, "variant_id", "variant_id is required")
+		return
+	}
+	delivery, err := s.review.Deliver(r.Context(), id,
+		strings.TrimSpace(body.VariantID), resolveActor(r, strings.TrimSpace(body.Actor)))
+	if err != nil {
+		writeReviewError(w, err)
+		return
+	}
+	req, err := s.request.Get(r.Context(), id)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"request": req, "delivery": delivery})
+}
+
+func (s *Server) getRequestReview(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	req, err := s.request.Get(r.Context(), id)
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "material_request")
+		return
+	}
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	if !clientOwnsRequest(w, r, req.ClientID) {
+		return
+	}
+	events, err := s.review.ListEvents(r.Context(), id)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	var delivery *review.Delivery
+	if d, err := s.review.GetDelivery(r.Context(), id); err == nil {
+		delivery = &d
+	} else if err != sql.ErrNoRows {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{
+		"request":  req,
+		"events":   events,
+		"delivery": delivery,
+	})
+}
+
+func (s *Server) listDeliveries(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	page := ParsePage(q.Get("page"))
+	pageSize := ParsePageSize(q.Get("page_size"))
+	items, total, err := s.review.ListDeliveries(r.Context(), page, pageSize)
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, ListResponse{
+		Items:      items,
+		Pagination: PaginationFor(page, pageSize, total),
+		Effective: map[string]any{
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+func (s *Server) getDelivery(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		WriteFieldError(w, "id", "id is required")
+		return
+	}
+	delivery, err := s.review.GetDeliveryByID(r.Context(), id)
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "delivery")
+		return
+	}
+	if err != nil {
+		WriteInternal(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, delivery)
+}
+
+// writeReviewError maps review service errors onto the standard envelope:
+// missing requests 404, illegal status 409 invalid_status, repeated delivery
+// 409 already_delivered, and variant mismatches a 400 field error.
+func writeReviewError(w http.ResponseWriter, err error) {
+	if err == sql.ErrNoRows {
+		WriteNotFound(w, "material_request")
+		return
+	}
+	var statusErr *review.StatusError
+	if errors.As(err, &statusErr) {
+		WriteError(w, http.StatusConflict, "invalid_status", statusErr.Error())
+		return
+	}
+	if errors.Is(err, review.ErrAlreadyDelivered) {
+		WriteError(w, http.StatusConflict, "already_delivered", err.Error())
+		return
+	}
+	var variantErr *review.VariantError
+	if errors.As(err, &variantErr) {
+		WriteFieldError(w, "variant_id", variantErr.Error())
+		return
+	}
+	WriteInternal(w, err)
 }
 
 func (s *Server) createImport(w http.ResponseWriter, r *http.Request) {

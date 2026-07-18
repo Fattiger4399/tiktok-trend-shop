@@ -399,6 +399,30 @@ func (r *Repository) SnapshotHistory(ctx context.Context, productID, window stri
 	return out, rows.Err()
 }
 
+// ListMarketplaces returns the distinct marketplaces present in the catalog,
+// falling back to region when a product has no marketplace set.
+func (r *Repository) ListMarketplaces(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT COALESCE(NULLIF(marketplace, ''), region)
+		FROM products
+		WHERE COALESCE(NULLIF(marketplace, ''), region) != ''
+		ORDER BY 1
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var m string
+		if err := rows.Scan(&m); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 func (r *Repository) ListProducts(ctx context.Context, limit int) ([]ProductResult, error) {
 	if limit <= 0 {
 		limit = 20

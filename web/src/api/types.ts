@@ -159,3 +159,83 @@ export interface SnapshotRecord {
   metric_kind: string
   metrics: Record<string, number>
 }
+
+export type MaterialRequestStatus =
+  | 'submitted'
+  | 'generating'
+  | 'generated'
+  | 'approved'
+  | 'rejected'
+  | 'delivered'
+
+export interface MaterialRequest {
+  id: string
+  product_id: string
+  client_id: string
+  usage: string
+  style: string
+  focus: string
+  notes: string
+  status: MaterialRequestStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface CopyVariant {
+  id: string
+  request_id: string
+  variant_no: number
+  hook: string
+  body: string
+  caption: string
+  hashtags: string[]
+  provider: string
+  model: string
+  prompt_version: string
+  created_at: string
+}
+
+export interface ReviewEvent {
+  id: string
+  request_id: string
+  action: 'approved' | 'rejected'
+  actor: string
+  note: string
+  variant_id: string | null
+  created_at: string
+}
+
+export interface DeliveryPackageProduct {
+  id: string
+  title: string
+  asin?: string | null
+  marketplace?: string | null
+}
+
+export interface DeliveryPackage {
+  request: MaterialRequest
+  variant: CopyVariant
+  product: DeliveryPackageProduct
+}
+
+export interface Delivery {
+  id: string
+  request_id: string
+  variant_id: string
+  actor: string
+  package: DeliveryPackage
+  created_at: string
+}
+
+export interface RequestReview {
+  request: MaterialRequest
+  events: ReviewEvent[]
+  delivery: Delivery | null
+}
+
+export interface PrefillSuggestion {
+  usage: string
+  style: string
+  focus: string
+  notes: string
+}
